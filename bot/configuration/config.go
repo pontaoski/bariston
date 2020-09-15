@@ -5,6 +5,7 @@ import "github.com/hashicorp/hcl/v2/hclsimple"
 // BaritoneConfig is the configuration structure for the bot
 type BaritoneConfig struct {
 	Token string `hcl:"token"`
+	Owner uint64 `hcl:"owner"`
 }
 
 // Config is the instance of BaritoneConfig with the loaded config

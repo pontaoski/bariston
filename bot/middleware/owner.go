@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	. "baritone/bot/configuration"
 	"baritone/bot/logger"
 	"baritone/bot/routing/types"
 
@@ -16,6 +17,10 @@ var (
 					c.Send(discord.Embed{
 						Title: "This command can only be run in guilds.",
 					}, "primary")
+					return
+				}
+				if c.TriggerMessage.Author.ID == discord.UserID(Config.Owner) {
+					next(c)
 					return
 				}
 				guild, err := c.Session.Guild(c.TriggerMessage.GuildID)
