@@ -65,15 +65,6 @@ func (c *Context) AwaitResponse(tenpo time.Duration) (response string, ok bool) 
 	}
 }
 
-func (c *Context) SetData(data string, v interface{}) {
-	c.data[data] = v
-}
-
-func (c *Context) RecallData(data string) (v interface{}, ok bool) {
-	v, ok = c.data[data]
-	return
-}
-
 func (c *Context) sendPaginators(list EmbedList, id string) {
 	if val, ok := c.msgs[id]; ok && val != nil {
 		c.Session.DeleteMessage(val.ChannelID, val.ID)

@@ -97,10 +97,10 @@ type Context struct {
 	IsTag          bool
 	FromAuthor     discord.User
 	FromMember     *discord.Member
+	Waiting        bool
 
 	msgs       map[string]*discord.Message
 	paginators map[string]*dgwidgets.Paginator
-	data       map[string]interface{}
 }
 
 type EmbedList struct {

@@ -11,12 +11,13 @@ type CafeContext struct {
 
 // RecallData recalls data stored in the given context
 func (p CafeContext) RecallData(key string) (v interface{}, ok bool) {
-	return p.ctx.RecallData("pomo-" + key)
+	value, ok := p.ctx.Data["pomo-"+key]
+	return value, ok
 }
 
 // SetData stores data in the context across invocations
 func (p CafeContext) SetData(key string, v interface{}) {
-	p.ctx.SetData("pomo-"+key, v)
+	p.ctx.Data["pomo-"+key] = v
 }
 
 // NextResponse creates a channel with the contents of the next response
