@@ -3,12 +3,14 @@
 package ent
 
 import (
+	"baritone/ent/guild"
 	"baritone/ent/user"
 	"baritone/ent/warning"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/diamondburned/arikawa/discord"
 	"github.com/facebook/ent/dialect/sql"
 )
 
@@ -23,18 +25,24 @@ type Warning struct {
 	Date time.Time `json:"date,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the WarningQuery when eager-loading is set.
-	Edges          WarningEdges `json:"edges"`
-	guild_warnings *int
-	warning_user   *uint64
+	Edges             WarningEdges `json:"edges"`
+	guild_warnings    *discord.GuildID
+	warning_user      *discord.UserID
+	warning_issued_by *discord.UserID
+	warning_guild     *discord.GuildID
 }
 
 // WarningEdges holds the relations/edges for other nodes in the graph.
 type WarningEdges struct {
 	// User holds the value of the user edge.
 	User *User
+	// IssuedBy holds the value of the issuedBy edge.
+	IssuedBy *User
+	// Guild holds the value of the guild edge.
+	Guild *Guild
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [1]bool
+	loadedTypes [3]bool
 }
 
 // UserOrErr returns the User value or an error if the edge
@@ -51,6 +59,34 @@ func (e WarningEdges) UserOrErr() (*User, error) {
 	return nil, &NotLoadedError{edge: "user"}
 }
 
+// IssuedByOrErr returns the IssuedBy value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e WarningEdges) IssuedByOrErr() (*User, error) {
+	if e.loadedTypes[1] {
+		if e.IssuedBy == nil {
+			// The edge issuedBy was loaded in eager-loading,
+			// but was not found.
+			return nil, &NotFoundError{label: user.Label}
+		}
+		return e.IssuedBy, nil
+	}
+	return nil, &NotLoadedError{edge: "issuedBy"}
+}
+
+// GuildOrErr returns the Guild value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e WarningEdges) GuildOrErr() (*Guild, error) {
+	if e.loadedTypes[2] {
+		if e.Guild == nil {
+			// The edge guild was loaded in eager-loading,
+			// but was not found.
+			return nil, &NotFoundError{label: guild.Label}
+		}
+		return e.Guild, nil
+	}
+	return nil, &NotLoadedError{edge: "guild"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*Warning) scanValues() []interface{} {
 	return []interface{}{
@@ -65,6 +101,8 @@ func (*Warning) fkValues() []interface{} {
 	return []interface{}{
 		&sql.NullInt64{}, // guild_warnings
 		&sql.NullInt64{}, // warning_user
+		&sql.NullInt64{}, // warning_issued_by
+		&sql.NullInt64{}, // warning_guild
 	}
 }
 
@@ -95,14 +133,26 @@ func (w *Warning) assignValues(values ...interface{}) error {
 		if value, ok := values[0].(*sql.NullInt64); !ok {
 			return fmt.Errorf("unexpected type %T for edge-field guild_warnings", value)
 		} else if value.Valid {
-			w.guild_warnings = new(int)
-			*w.guild_warnings = int(value.Int64)
+			w.guild_warnings = new(discord.GuildID)
+			*w.guild_warnings = discord.GuildID(value.Int64)
 		}
 		if value, ok := values[1].(*sql.NullInt64); !ok {
 			return fmt.Errorf("unexpected type %T for edge-field warning_user", value)
 		} else if value.Valid {
-			w.warning_user = new(uint64)
-			*w.warning_user = uint64(value.Int64)
+			w.warning_user = new(discord.UserID)
+			*w.warning_user = discord.UserID(value.Int64)
+		}
+		if value, ok := values[2].(*sql.NullInt64); !ok {
+			return fmt.Errorf("unexpected type %T for edge-field warning_issued_by", value)
+		} else if value.Valid {
+			w.warning_issued_by = new(discord.UserID)
+			*w.warning_issued_by = discord.UserID(value.Int64)
+		}
+		if value, ok := values[3].(*sql.NullInt64); !ok {
+			return fmt.Errorf("unexpected type %T for edge-field warning_guild", value)
+		} else if value.Valid {
+			w.warning_guild = new(discord.GuildID)
+			*w.warning_guild = discord.GuildID(value.Int64)
 		}
 	}
 	return nil
@@ -111,6 +161,16 @@ func (w *Warning) assignValues(values ...interface{}) error {
 // QueryUser queries the user edge of the Warning.
 func (w *Warning) QueryUser() *UserQuery {
 	return (&WarningClient{config: w.config}).QueryUser(w)
+}
+
+// QueryIssuedBy queries the issuedBy edge of the Warning.
+func (w *Warning) QueryIssuedBy() *UserQuery {
+	return (&WarningClient{config: w.config}).QueryIssuedBy(w)
+}
+
+// QueryGuild queries the guild edge of the Warning.
+func (w *Warning) QueryGuild() *GuildQuery {
+	return (&WarningClient{config: w.config}).QueryGuild(w)
 }
 
 // Update returns a builder for updating this Warning.

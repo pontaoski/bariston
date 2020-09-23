@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/diamondburned/arikawa/discord"
 	"github.com/facebook/ent"
 )
 
@@ -33,10 +34,11 @@ type GuildMutation struct {
 	config
 	op              Op
 	typ             string
-	id              *int
+	id              *discord.GuildID
 	clearedFields   map[string]struct{}
 	warnings        map[int]struct{}
 	removedwarnings map[int]struct{}
+	clearedwarnings bool
 	done            bool
 	oldValue        func(context.Context) (*Guild, error)
 }
@@ -61,7 +63,7 @@ func newGuildMutation(c config, op Op, opts ...guildOption) *GuildMutation {
 }
 
 // withGuildID sets the id field of the mutation.
-func withGuildID(id int) guildOption {
+func withGuildID(id discord.GuildID) guildOption {
 	return func(m *GuildMutation) {
 		var (
 			err   error
@@ -111,9 +113,15 @@ func (m GuildMutation) Tx() (*Tx, error) {
 	return tx, nil
 }
 
+// SetID sets the value of the id field. Note that, this
+// operation is accepted only on Guild creation.
+func (m *GuildMutation) SetID(id discord.GuildID) {
+	m.id = &id
+}
+
 // ID returns the id value in the mutation. Note that, the id
 // is available only if it was provided to the builder.
-func (m *GuildMutation) ID() (id int, exists bool) {
+func (m *GuildMutation) ID() (id discord.GuildID, exists bool) {
 	if m.id == nil {
 		return
 	}
@@ -128,6 +136,16 @@ func (m *GuildMutation) AddWarningIDs(ids ...int) {
 	for i := range ids {
 		m.warnings[ids[i]] = struct{}{}
 	}
+}
+
+// ClearWarnings clears the warnings edge to Warning.
+func (m *GuildMutation) ClearWarnings() {
+	m.clearedwarnings = true
+}
+
+// WarningsCleared returns if the edge warnings was cleared.
+func (m *GuildMutation) WarningsCleared() bool {
+	return m.clearedwarnings
 }
 
 // RemoveWarningIDs removes the warnings edge to Warning by ids.
@@ -159,6 +177,7 @@ func (m *GuildMutation) WarningsIDs() (ids []int) {
 // ResetWarnings reset all changes of the "warnings" edge.
 func (m *GuildMutation) ResetWarnings() {
 	m.warnings = nil
+	m.clearedwarnings = false
 	m.removedwarnings = nil
 }
 
@@ -301,6 +320,9 @@ func (m *GuildMutation) RemovedIDs(name string) []ent.Value {
 // mutation.
 func (m *GuildMutation) ClearedEdges() []string {
 	edges := make([]string, 0, 1)
+	if m.clearedwarnings {
+		edges = append(edges, guild.EdgeWarnings)
+	}
 	return edges
 }
 
@@ -308,6 +330,8 @@ func (m *GuildMutation) ClearedEdges() []string {
 // cleared in this mutation.
 func (m *GuildMutation) EdgeCleared(name string) bool {
 	switch name {
+	case guild.EdgeWarnings:
+		return m.clearedwarnings
 	}
 	return false
 }
@@ -338,7 +362,7 @@ type UserMutation struct {
 	config
 	op            Op
 	typ           string
-	id            *uint64
+	id            *discord.UserID
 	clearedFields map[string]struct{}
 	done          bool
 	oldValue      func(context.Context) (*User, error)
@@ -364,7 +388,7 @@ func newUserMutation(c config, op Op, opts ...userOption) *UserMutation {
 }
 
 // withUserID sets the id field of the mutation.
-func withUserID(id uint64) userOption {
+func withUserID(id discord.UserID) userOption {
 	return func(m *UserMutation) {
 		var (
 			err   error
@@ -416,13 +440,13 @@ func (m UserMutation) Tx() (*Tx, error) {
 
 // SetID sets the value of the id field. Note that, this
 // operation is accepted only on User creation.
-func (m *UserMutation) SetID(id uint64) {
+func (m *UserMutation) SetID(id discord.UserID) {
 	m.id = &id
 }
 
 // ID returns the id value in the mutation. Note that, the id
 // is available only if it was provided to the builder.
-func (m *UserMutation) ID() (id uint64, exists bool) {
+func (m *UserMutation) ID() (id discord.UserID, exists bool) {
 	if m.id == nil {
 		return
 	}
@@ -572,16 +596,20 @@ func (m *UserMutation) ResetEdge(name string) error {
 // nodes in the graph.
 type WarningMutation struct {
 	config
-	op            Op
-	typ           string
-	id            *int
-	reason        *string
-	date          *time.Time
-	clearedFields map[string]struct{}
-	user          *uint64
-	cleareduser   bool
-	done          bool
-	oldValue      func(context.Context) (*Warning, error)
+	op              Op
+	typ             string
+	id              *int
+	reason          *string
+	date            *time.Time
+	clearedFields   map[string]struct{}
+	user            *discord.UserID
+	cleareduser     bool
+	issuedBy        *discord.UserID
+	clearedissuedBy bool
+	guild           *discord.GuildID
+	clearedguild    bool
+	done            bool
+	oldValue        func(context.Context) (*Warning, error)
 }
 
 var _ ent.Mutation = (*WarningMutation)(nil)
@@ -738,7 +766,7 @@ func (m *WarningMutation) ResetDate() {
 }
 
 // SetUserID sets the user edge to User by id.
-func (m *WarningMutation) SetUserID(id uint64) {
+func (m *WarningMutation) SetUserID(id discord.UserID) {
 	m.user = &id
 }
 
@@ -753,7 +781,7 @@ func (m *WarningMutation) UserCleared() bool {
 }
 
 // UserID returns the user id in the mutation.
-func (m *WarningMutation) UserID() (id uint64, exists bool) {
+func (m *WarningMutation) UserID() (id discord.UserID, exists bool) {
 	if m.user != nil {
 		return *m.user, true
 	}
@@ -763,7 +791,7 @@ func (m *WarningMutation) UserID() (id uint64, exists bool) {
 // UserIDs returns the user ids in the mutation.
 // Note that ids always returns len(ids) <= 1 for unique edges, and you should use
 // UserID instead. It exists only for internal usage by the builders.
-func (m *WarningMutation) UserIDs() (ids []uint64) {
+func (m *WarningMutation) UserIDs() (ids []discord.UserID) {
 	if id := m.user; id != nil {
 		ids = append(ids, *id)
 	}
@@ -774,6 +802,84 @@ func (m *WarningMutation) UserIDs() (ids []uint64) {
 func (m *WarningMutation) ResetUser() {
 	m.user = nil
 	m.cleareduser = false
+}
+
+// SetIssuedByID sets the issuedBy edge to User by id.
+func (m *WarningMutation) SetIssuedByID(id discord.UserID) {
+	m.issuedBy = &id
+}
+
+// ClearIssuedBy clears the issuedBy edge to User.
+func (m *WarningMutation) ClearIssuedBy() {
+	m.clearedissuedBy = true
+}
+
+// IssuedByCleared returns if the edge issuedBy was cleared.
+func (m *WarningMutation) IssuedByCleared() bool {
+	return m.clearedissuedBy
+}
+
+// IssuedByID returns the issuedBy id in the mutation.
+func (m *WarningMutation) IssuedByID() (id discord.UserID, exists bool) {
+	if m.issuedBy != nil {
+		return *m.issuedBy, true
+	}
+	return
+}
+
+// IssuedByIDs returns the issuedBy ids in the mutation.
+// Note that ids always returns len(ids) <= 1 for unique edges, and you should use
+// IssuedByID instead. It exists only for internal usage by the builders.
+func (m *WarningMutation) IssuedByIDs() (ids []discord.UserID) {
+	if id := m.issuedBy; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetIssuedBy reset all changes of the "issuedBy" edge.
+func (m *WarningMutation) ResetIssuedBy() {
+	m.issuedBy = nil
+	m.clearedissuedBy = false
+}
+
+// SetGuildID sets the guild edge to Guild by id.
+func (m *WarningMutation) SetGuildID(id discord.GuildID) {
+	m.guild = &id
+}
+
+// ClearGuild clears the guild edge to Guild.
+func (m *WarningMutation) ClearGuild() {
+	m.clearedguild = true
+}
+
+// GuildCleared returns if the edge guild was cleared.
+func (m *WarningMutation) GuildCleared() bool {
+	return m.clearedguild
+}
+
+// GuildID returns the guild id in the mutation.
+func (m *WarningMutation) GuildID() (id discord.GuildID, exists bool) {
+	if m.guild != nil {
+		return *m.guild, true
+	}
+	return
+}
+
+// GuildIDs returns the guild ids in the mutation.
+// Note that ids always returns len(ids) <= 1 for unique edges, and you should use
+// GuildID instead. It exists only for internal usage by the builders.
+func (m *WarningMutation) GuildIDs() (ids []discord.GuildID) {
+	if id := m.guild; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetGuild reset all changes of the "guild" edge.
+func (m *WarningMutation) ResetGuild() {
+	m.guild = nil
+	m.clearedguild = false
 }
 
 // Op returns the operation name.
@@ -908,9 +1014,15 @@ func (m *WarningMutation) ResetField(name string) error {
 // AddedEdges returns all edge names that were set/added in this
 // mutation.
 func (m *WarningMutation) AddedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 3)
 	if m.user != nil {
 		edges = append(edges, warning.EdgeUser)
+	}
+	if m.issuedBy != nil {
+		edges = append(edges, warning.EdgeIssuedBy)
+	}
+	if m.guild != nil {
+		edges = append(edges, warning.EdgeGuild)
 	}
 	return edges
 }
@@ -923,6 +1035,14 @@ func (m *WarningMutation) AddedIDs(name string) []ent.Value {
 		if id := m.user; id != nil {
 			return []ent.Value{*id}
 		}
+	case warning.EdgeIssuedBy:
+		if id := m.issuedBy; id != nil {
+			return []ent.Value{*id}
+		}
+	case warning.EdgeGuild:
+		if id := m.guild; id != nil {
+			return []ent.Value{*id}
+		}
 	}
 	return nil
 }
@@ -930,7 +1050,7 @@ func (m *WarningMutation) AddedIDs(name string) []ent.Value {
 // RemovedEdges returns all edge names that were removed in this
 // mutation.
 func (m *WarningMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 3)
 	return edges
 }
 
@@ -945,9 +1065,15 @@ func (m *WarningMutation) RemovedIDs(name string) []ent.Value {
 // ClearedEdges returns all edge names that were cleared in this
 // mutation.
 func (m *WarningMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 3)
 	if m.cleareduser {
 		edges = append(edges, warning.EdgeUser)
+	}
+	if m.clearedissuedBy {
+		edges = append(edges, warning.EdgeIssuedBy)
+	}
+	if m.clearedguild {
+		edges = append(edges, warning.EdgeGuild)
 	}
 	return edges
 }
@@ -958,6 +1084,10 @@ func (m *WarningMutation) EdgeCleared(name string) bool {
 	switch name {
 	case warning.EdgeUser:
 		return m.cleareduser
+	case warning.EdgeIssuedBy:
+		return m.clearedissuedBy
+	case warning.EdgeGuild:
+		return m.clearedguild
 	}
 	return false
 }
@@ -968,6 +1098,12 @@ func (m *WarningMutation) ClearEdge(name string) error {
 	switch name {
 	case warning.EdgeUser:
 		m.ClearUser()
+		return nil
+	case warning.EdgeIssuedBy:
+		m.ClearIssuedBy()
+		return nil
+	case warning.EdgeGuild:
+		m.ClearGuild()
 		return nil
 	}
 	return fmt.Errorf("unknown Warning unique edge %s", name)
@@ -980,6 +1116,12 @@ func (m *WarningMutation) ResetEdge(name string) error {
 	switch name {
 	case warning.EdgeUser:
 		m.ResetUser()
+		return nil
+	case warning.EdgeIssuedBy:
+		m.ResetIssuedBy()
+		return nil
+	case warning.EdgeGuild:
+		m.ResetGuild()
 		return nil
 	}
 	return fmt.Errorf("unknown Warning edge %s", name)

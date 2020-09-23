@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"github.com/diamondburned/arikawa/discord"
 	"github.com/facebook/ent"
 	"github.com/facebook/ent/schema/field"
 )
@@ -13,7 +14,7 @@ type User struct {
 // Fields of the User.
 func (User) Fields() []ent.Field {
 	return []ent.Field{
-		field.Uint64("id").Unique(),
+		field.Uint64("id").Unique().GoType(discord.UserID(0)),
 	}
 }
 

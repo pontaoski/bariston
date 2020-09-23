@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"baritone/ent/guild"
 	"baritone/ent/user"
 	"baritone/ent/warning"
 	"context"
@@ -10,6 +11,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/diamondburned/arikawa/discord"
 	"github.com/facebook/ent/dialect/sql/sqlgraph"
 	"github.com/facebook/ent/schema/field"
 )
@@ -34,22 +36,36 @@ func (wc *WarningCreate) SetDate(t time.Time) *WarningCreate {
 }
 
 // SetUserID sets the user edge to User by id.
-func (wc *WarningCreate) SetUserID(id uint64) *WarningCreate {
+func (wc *WarningCreate) SetUserID(id discord.UserID) *WarningCreate {
 	wc.mutation.SetUserID(id)
-	return wc
-}
-
-// SetNillableUserID sets the user edge to User by id if the given value is not nil.
-func (wc *WarningCreate) SetNillableUserID(id *uint64) *WarningCreate {
-	if id != nil {
-		wc = wc.SetUserID(*id)
-	}
 	return wc
 }
 
 // SetUser sets the user edge to User.
 func (wc *WarningCreate) SetUser(u *User) *WarningCreate {
 	return wc.SetUserID(u.ID)
+}
+
+// SetIssuedByID sets the issuedBy edge to User by id.
+func (wc *WarningCreate) SetIssuedByID(id discord.UserID) *WarningCreate {
+	wc.mutation.SetIssuedByID(id)
+	return wc
+}
+
+// SetIssuedBy sets the issuedBy edge to User.
+func (wc *WarningCreate) SetIssuedBy(u *User) *WarningCreate {
+	return wc.SetIssuedByID(u.ID)
+}
+
+// SetGuildID sets the guild edge to Guild by id.
+func (wc *WarningCreate) SetGuildID(id discord.GuildID) *WarningCreate {
+	wc.mutation.SetGuildID(id)
+	return wc
+}
+
+// SetGuild sets the guild edge to Guild.
+func (wc *WarningCreate) SetGuild(g *Guild) *WarningCreate {
+	return wc.SetGuildID(g.ID)
 }
 
 // Mutation returns the WarningMutation object of the builder.
@@ -59,20 +75,23 @@ func (wc *WarningCreate) Mutation() *WarningMutation {
 
 // Save creates the Warning in the database.
 func (wc *WarningCreate) Save(ctx context.Context) (*Warning, error) {
-	if err := wc.preSave(); err != nil {
-		return nil, err
-	}
 	var (
 		err  error
 		node *Warning
 	)
 	if len(wc.hooks) == 0 {
+		if err = wc.check(); err != nil {
+			return nil, err
+		}
 		node, err = wc.sqlSave(ctx)
 	} else {
 		var mut Mutator = MutateFunc(func(ctx context.Context, m Mutation) (Value, error) {
 			mutation, ok := m.(*WarningMutation)
 			if !ok {
 				return nil, fmt.Errorf("unexpected mutation type %T", m)
+			}
+			if err = wc.check(); err != nil {
+				return nil, err
 			}
 			wc.mutation = mutation
 			node, err = wc.sqlSave(ctx)
@@ -98,18 +117,28 @@ func (wc *WarningCreate) SaveX(ctx context.Context) *Warning {
 	return v
 }
 
-func (wc *WarningCreate) preSave() error {
+// check runs all checks and user-defined validators on the builder.
+func (wc *WarningCreate) check() error {
 	if _, ok := wc.mutation.Reason(); !ok {
 		return &ValidationError{Name: "reason", err: errors.New("ent: missing required field \"reason\"")}
 	}
 	if _, ok := wc.mutation.Date(); !ok {
 		return &ValidationError{Name: "date", err: errors.New("ent: missing required field \"date\"")}
 	}
+	if _, ok := wc.mutation.UserID(); !ok {
+		return &ValidationError{Name: "user", err: errors.New("ent: missing required edge \"user\"")}
+	}
+	if _, ok := wc.mutation.IssuedByID(); !ok {
+		return &ValidationError{Name: "issuedBy", err: errors.New("ent: missing required edge \"issuedBy\"")}
+	}
+	if _, ok := wc.mutation.GuildID(); !ok {
+		return &ValidationError{Name: "guild", err: errors.New("ent: missing required edge \"guild\"")}
+	}
 	return nil
 }
 
 func (wc *WarningCreate) sqlSave(ctx context.Context) (*Warning, error) {
-	w, _spec := wc.createSpec()
+	_node, _spec := wc.createSpec()
 	if err := sqlgraph.CreateNode(ctx, wc.driver, _spec); err != nil {
 		if cerr, ok := isSQLConstraintError(err); ok {
 			err = cerr
@@ -117,13 +146,13 @@ func (wc *WarningCreate) sqlSave(ctx context.Context) (*Warning, error) {
 		return nil, err
 	}
 	id := _spec.ID.Value.(int64)
-	w.ID = int(id)
-	return w, nil
+	_node.ID = int(id)
+	return _node, nil
 }
 
 func (wc *WarningCreate) createSpec() (*Warning, *sqlgraph.CreateSpec) {
 	var (
-		w     = &Warning{config: wc.config}
+		_node = &Warning{config: wc.config}
 		_spec = &sqlgraph.CreateSpec{
 			Table: warning.Table,
 			ID: &sqlgraph.FieldSpec{
@@ -138,7 +167,7 @@ func (wc *WarningCreate) createSpec() (*Warning, *sqlgraph.CreateSpec) {
 			Value:  value,
 			Column: warning.FieldReason,
 		})
-		w.Reason = value
+		_node.Reason = value
 	}
 	if value, ok := wc.mutation.Date(); ok {
 		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
@@ -146,7 +175,7 @@ func (wc *WarningCreate) createSpec() (*Warning, *sqlgraph.CreateSpec) {
 			Value:  value,
 			Column: warning.FieldDate,
 		})
-		w.Date = value
+		_node.Date = value
 	}
 	if nodes := wc.mutation.UserIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -167,7 +196,45 @@ func (wc *WarningCreate) createSpec() (*Warning, *sqlgraph.CreateSpec) {
 		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
-	return w, _spec
+	if nodes := wc.mutation.IssuedByIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   warning.IssuedByTable,
+			Columns: []string{warning.IssuedByColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeUint64,
+					Column: user.FieldID,
+				},
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := wc.mutation.GuildIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   warning.GuildTable,
+			Columns: []string{warning.GuildColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeUint64,
+					Column: guild.FieldID,
+				},
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	return _node, _spec
 }
 
 // WarningCreateBulk is the builder for creating a bulk of Warning entities.
@@ -185,12 +252,12 @@ func (wcb *WarningCreateBulk) Save(ctx context.Context) ([]*Warning, error) {
 		func(i int, root context.Context) {
 			builder := wcb.builders[i]
 			var mut Mutator = MutateFunc(func(ctx context.Context, m Mutation) (Value, error) {
-				if err := builder.preSave(); err != nil {
-					return nil, err
-				}
 				mutation, ok := m.(*WarningMutation)
 				if !ok {
 					return nil, fmt.Errorf("unexpected mutation type %T", m)
+				}
+				if err := builder.check(); err != nil {
+					return nil, err
 				}
 				builder.mutation = mutation
 				nodes[i], specs[i] = builder.createSpec()

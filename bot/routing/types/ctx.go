@@ -76,6 +76,9 @@ func (c *Context) sendPaginators(list EmbedList, id string) {
 		title = list.ItemTypeName
 	}
 	for idx, page := range list.Embeds {
+		if page.Footer == nil {
+			page.Footer = new(discord.EmbedFooter)
+		}
 		page.Footer.Text = fmt.Sprintf("%s %d/%d", title, idx+1, len(list.Embeds))
 		paginator.Add(page)
 	}
@@ -114,7 +117,7 @@ func (c *Context) ErrorEmbed(content string) discord.Embed {
 	return discord.Embed{
 		Title:       "Error",
 		Description: content,
-		Color:       0xff0000,
+		Color:       ErrorRed,
 	}
 }
 
@@ -122,7 +125,7 @@ func (c *Context) StatusEmbed(title, content string) discord.Embed {
 	return discord.Embed{
 		Title:       title,
 		Description: content,
-		Color:       0x00d485,
+		Color:       StatusBlue,
 	}
 }
 
@@ -130,7 +133,7 @@ func (c *Context) SuccessEmbed(title, content string) discord.Embed {
 	return discord.Embed{
 		Title:       title,
 		Description: content,
-		Color:       0x3dd425,
+		Color:       SuccessGreen,
 	}
 }
 

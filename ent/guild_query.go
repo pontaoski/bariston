@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/diamondburned/arikawa/discord"
 	"github.com/facebook/ent/dialect/sql"
 	"github.com/facebook/ent/dialect/sql/sqlgraph"
 	"github.com/facebook/ent/schema/field"
@@ -63,8 +64,12 @@ func (gq *GuildQuery) QueryWarnings() *WarningQuery {
 		if err := gq.prepareQuery(ctx); err != nil {
 			return nil, err
 		}
+		selector := gq.sqlQuery()
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
 		step := sqlgraph.NewStep(
-			sqlgraph.From(guild.Table, guild.FieldID, gq.sqlQuery()),
+			sqlgraph.From(guild.Table, guild.FieldID, selector),
 			sqlgraph.To(warning.Table, warning.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, guild.WarningsTable, guild.WarningsColumn),
 		)
@@ -76,28 +81,28 @@ func (gq *GuildQuery) QueryWarnings() *WarningQuery {
 
 // First returns the first Guild entity in the query. Returns *NotFoundError when no guild was found.
 func (gq *GuildQuery) First(ctx context.Context) (*Guild, error) {
-	gus, err := gq.Limit(1).All(ctx)
+	nodes, err := gq.Limit(1).All(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if len(gus) == 0 {
+	if len(nodes) == 0 {
 		return nil, &NotFoundError{guild.Label}
 	}
-	return gus[0], nil
+	return nodes[0], nil
 }
 
 // FirstX is like First, but panics if an error occurs.
 func (gq *GuildQuery) FirstX(ctx context.Context) *Guild {
-	gu, err := gq.First(ctx)
+	node, err := gq.First(ctx)
 	if err != nil && !IsNotFound(err) {
 		panic(err)
 	}
-	return gu
+	return node
 }
 
 // FirstID returns the first Guild id in the query. Returns *NotFoundError when no id was found.
-func (gq *GuildQuery) FirstID(ctx context.Context) (id int, err error) {
-	var ids []int
+func (gq *GuildQuery) FirstID(ctx context.Context) (id discord.GuildID, err error) {
+	var ids []discord.GuildID
 	if ids, err = gq.Limit(1).IDs(ctx); err != nil {
 		return
 	}
@@ -109,7 +114,7 @@ func (gq *GuildQuery) FirstID(ctx context.Context) (id int, err error) {
 }
 
 // FirstXID is like FirstID, but panics if an error occurs.
-func (gq *GuildQuery) FirstXID(ctx context.Context) int {
+func (gq *GuildQuery) FirstXID(ctx context.Context) discord.GuildID {
 	id, err := gq.FirstID(ctx)
 	if err != nil && !IsNotFound(err) {
 		panic(err)
@@ -119,13 +124,13 @@ func (gq *GuildQuery) FirstXID(ctx context.Context) int {
 
 // Only returns the only Guild entity in the query, returns an error if not exactly one entity was returned.
 func (gq *GuildQuery) Only(ctx context.Context) (*Guild, error) {
-	gus, err := gq.Limit(2).All(ctx)
+	nodes, err := gq.Limit(2).All(ctx)
 	if err != nil {
 		return nil, err
 	}
-	switch len(gus) {
+	switch len(nodes) {
 	case 1:
-		return gus[0], nil
+		return nodes[0], nil
 	case 0:
 		return nil, &NotFoundError{guild.Label}
 	default:
@@ -135,16 +140,16 @@ func (gq *GuildQuery) Only(ctx context.Context) (*Guild, error) {
 
 // OnlyX is like Only, but panics if an error occurs.
 func (gq *GuildQuery) OnlyX(ctx context.Context) *Guild {
-	gu, err := gq.Only(ctx)
+	node, err := gq.Only(ctx)
 	if err != nil {
 		panic(err)
 	}
-	return gu
+	return node
 }
 
 // OnlyID returns the only Guild id in the query, returns an error if not exactly one id was returned.
-func (gq *GuildQuery) OnlyID(ctx context.Context) (id int, err error) {
-	var ids []int
+func (gq *GuildQuery) OnlyID(ctx context.Context) (id discord.GuildID, err error) {
+	var ids []discord.GuildID
 	if ids, err = gq.Limit(2).IDs(ctx); err != nil {
 		return
 	}
@@ -160,7 +165,7 @@ func (gq *GuildQuery) OnlyID(ctx context.Context) (id int, err error) {
 }
 
 // OnlyIDX is like OnlyID, but panics if an error occurs.
-func (gq *GuildQuery) OnlyIDX(ctx context.Context) int {
+func (gq *GuildQuery) OnlyIDX(ctx context.Context) discord.GuildID {
 	id, err := gq.OnlyID(ctx)
 	if err != nil {
 		panic(err)
@@ -178,16 +183,16 @@ func (gq *GuildQuery) All(ctx context.Context) ([]*Guild, error) {
 
 // AllX is like All, but panics if an error occurs.
 func (gq *GuildQuery) AllX(ctx context.Context) []*Guild {
-	gus, err := gq.All(ctx)
+	nodes, err := gq.All(ctx)
 	if err != nil {
 		panic(err)
 	}
-	return gus
+	return nodes
 }
 
 // IDs executes the query and returns a list of Guild ids.
-func (gq *GuildQuery) IDs(ctx context.Context) ([]int, error) {
-	var ids []int
+func (gq *GuildQuery) IDs(ctx context.Context) ([]discord.GuildID, error) {
+	var ids []discord.GuildID
 	if err := gq.Select(guild.FieldID).Scan(ctx, &ids); err != nil {
 		return nil, err
 	}
@@ -195,7 +200,7 @@ func (gq *GuildQuery) IDs(ctx context.Context) ([]int, error) {
 }
 
 // IDsX is like IDs, but panics if an error occurs.
-func (gq *GuildQuery) IDsX(ctx context.Context) []int {
+func (gq *GuildQuery) IDsX(ctx context.Context) []discord.GuildID {
 	ids, err := gq.IDs(ctx)
 	if err != nil {
 		panic(err)
@@ -333,7 +338,7 @@ func (gq *GuildQuery) sqlAll(ctx context.Context) ([]*Guild, error) {
 
 	if query := gq.withWarnings; query != nil {
 		fks := make([]driver.Value, 0, len(nodes))
-		nodeids := make(map[int]*Guild)
+		nodeids := make(map[discord.GuildID]*Guild)
 		for i := range nodes {
 			fks = append(fks, nodes[i].ID)
 			nodeids[nodes[i].ID] = nodes[i]
@@ -381,7 +386,7 @@ func (gq *GuildQuery) querySpec() *sqlgraph.QuerySpec {
 			Table:   guild.Table,
 			Columns: guild.Columns,
 			ID: &sqlgraph.FieldSpec{
-				Type:   field.TypeInt,
+				Type:   field.TypeUint64,
 				Column: guild.FieldID,
 			},
 		},
@@ -404,7 +409,7 @@ func (gq *GuildQuery) querySpec() *sqlgraph.QuerySpec {
 	if ps := gq.order; len(ps) > 0 {
 		_spec.Order = func(selector *sql.Selector) {
 			for i := range ps {
-				ps[i](selector)
+				ps[i](selector, guild.ValidColumn)
 			}
 		}
 	}
@@ -423,7 +428,7 @@ func (gq *GuildQuery) sqlQuery() *sql.Selector {
 		p(selector)
 	}
 	for _, p := range gq.order {
-		p(selector)
+		p(selector, guild.ValidColumn)
 	}
 	if offset := gq.offset; offset != nil {
 		// limit is mandatory for offset clause. We start
@@ -658,8 +663,17 @@ func (ggb *GuildGroupBy) BoolX(ctx context.Context) bool {
 }
 
 func (ggb *GuildGroupBy) sqlScan(ctx context.Context, v interface{}) error {
+	for _, f := range ggb.fields {
+		if !guild.ValidColumn(f) {
+			return &ValidationError{Name: f, err: fmt.Errorf("invalid field %q for group-by", f)}
+		}
+	}
+	selector := ggb.sqlQuery()
+	if err := selector.Err(); err != nil {
+		return err
+	}
 	rows := &sql.Rows{}
-	query, args := ggb.sqlQuery().Query()
+	query, args := selector.Query()
 	if err := ggb.driver.Query(ctx, query, args, rows); err != nil {
 		return err
 	}
@@ -672,7 +686,7 @@ func (ggb *GuildGroupBy) sqlQuery() *sql.Selector {
 	columns := make([]string, 0, len(ggb.fields)+len(ggb.fns))
 	columns = append(columns, ggb.fields...)
 	for _, fn := range ggb.fns {
-		columns = append(columns, fn(selector))
+		columns = append(columns, fn(selector, guild.ValidColumn))
 	}
 	return selector.Select(columns...).GroupBy(ggb.fields...)
 }
@@ -892,6 +906,11 @@ func (gs *GuildSelect) BoolX(ctx context.Context) bool {
 }
 
 func (gs *GuildSelect) sqlScan(ctx context.Context, v interface{}) error {
+	for _, f := range gs.fields {
+		if !guild.ValidColumn(f) {
+			return &ValidationError{Name: f, err: fmt.Errorf("invalid field %q for selection", f)}
+		}
+	}
 	rows := &sql.Rows{}
 	query, args := gs.sqlQuery().Query()
 	if err := gs.driver.Query(ctx, query, args, rows); err != nil {

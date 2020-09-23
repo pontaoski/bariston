@@ -14,6 +14,15 @@ import (
 )
 
 func handleMessage(s *session.Session, m discord.Message, mem *discord.Member) {
+	defer func() {
+		if err := recover(); err != nil {
+			s.Client.SendEmbed(m.ChannelID, discord.Embed{
+				Title:       "EXTREME ERROR",
+				Description: "There was a serious issue handling messages. Please report at once!",
+				Color:       types.ErrorRed,
+			})
+		}
+	}()
 	cmd, ctx, ok := commands.LexCommand(stripmd.Strip(m.Content))
 
 	if !ok {

@@ -22,6 +22,8 @@ func (Warning) Fields() []ent.Field {
 // Edges of the Warning.
 func (Warning) Edges() []ent.Edge {
 	return []ent.Edge{
-		edge.To("user", User.Type).Unique(),
+		edge.To("user", User.Type).Unique().Required(),
+		edge.To("issuedBy", User.Type).Unique().Required(),
+		edge.To("guild", Guild.Type).Unique().Required(),
 	}
 }

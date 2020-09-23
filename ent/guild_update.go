@@ -48,6 +48,12 @@ func (gu *GuildUpdate) Mutation() *GuildMutation {
 	return gu.mutation
 }
 
+// ClearWarnings clears all "warnings" edges to type Warning.
+func (gu *GuildUpdate) ClearWarnings() *GuildUpdate {
+	gu.mutation.ClearWarnings()
+	return gu
+}
+
 // RemoveWarningIDs removes the warnings edge to Warning by ids.
 func (gu *GuildUpdate) RemoveWarningIDs(ids ...int) *GuildUpdate {
 	gu.mutation.RemoveWarningIDs(ids...)
@@ -65,7 +71,6 @@ func (gu *GuildUpdate) RemoveWarnings(w ...*Warning) *GuildUpdate {
 
 // Save executes the query and returns the number of rows/vertices matched by this operation.
 func (gu *GuildUpdate) Save(ctx context.Context) (int, error) {
-
 	var (
 		err      error
 		affected int
@@ -121,7 +126,7 @@ func (gu *GuildUpdate) sqlSave(ctx context.Context) (n int, err error) {
 			Table:   guild.Table,
 			Columns: guild.Columns,
 			ID: &sqlgraph.FieldSpec{
-				Type:   field.TypeInt,
+				Type:   field.TypeUint64,
 				Column: guild.FieldID,
 			},
 		},
@@ -133,7 +138,23 @@ func (gu *GuildUpdate) sqlSave(ctx context.Context) (n int, err error) {
 			}
 		}
 	}
-	if nodes := gu.mutation.RemovedWarningsIDs(); len(nodes) > 0 {
+	if gu.mutation.WarningsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   guild.WarningsTable,
+			Columns: []string{guild.WarningsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeInt,
+					Column: warning.FieldID,
+				},
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := gu.mutation.RemovedWarningsIDs(); len(nodes) > 0 && !gu.mutation.WarningsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
 			Inverse: false,
@@ -209,6 +230,12 @@ func (guo *GuildUpdateOne) Mutation() *GuildMutation {
 	return guo.mutation
 }
 
+// ClearWarnings clears all "warnings" edges to type Warning.
+func (guo *GuildUpdateOne) ClearWarnings() *GuildUpdateOne {
+	guo.mutation.ClearWarnings()
+	return guo
+}
+
 // RemoveWarningIDs removes the warnings edge to Warning by ids.
 func (guo *GuildUpdateOne) RemoveWarningIDs(ids ...int) *GuildUpdateOne {
 	guo.mutation.RemoveWarningIDs(ids...)
@@ -226,7 +253,6 @@ func (guo *GuildUpdateOne) RemoveWarnings(w ...*Warning) *GuildUpdateOne {
 
 // Save executes the query and returns the updated entity.
 func (guo *GuildUpdateOne) Save(ctx context.Context) (*Guild, error) {
-
 	var (
 		err  error
 		node *Guild
@@ -256,11 +282,11 @@ func (guo *GuildUpdateOne) Save(ctx context.Context) (*Guild, error) {
 
 // SaveX is like Save, but panics if an error occurs.
 func (guo *GuildUpdateOne) SaveX(ctx context.Context) *Guild {
-	gu, err := guo.Save(ctx)
+	node, err := guo.Save(ctx)
 	if err != nil {
 		panic(err)
 	}
-	return gu
+	return node
 }
 
 // Exec executes the query on the entity.
@@ -276,13 +302,13 @@ func (guo *GuildUpdateOne) ExecX(ctx context.Context) {
 	}
 }
 
-func (guo *GuildUpdateOne) sqlSave(ctx context.Context) (gu *Guild, err error) {
+func (guo *GuildUpdateOne) sqlSave(ctx context.Context) (_node *Guild, err error) {
 	_spec := &sqlgraph.UpdateSpec{
 		Node: &sqlgraph.NodeSpec{
 			Table:   guild.Table,
 			Columns: guild.Columns,
 			ID: &sqlgraph.FieldSpec{
-				Type:   field.TypeInt,
+				Type:   field.TypeUint64,
 				Column: guild.FieldID,
 			},
 		},
@@ -292,7 +318,23 @@ func (guo *GuildUpdateOne) sqlSave(ctx context.Context) (gu *Guild, err error) {
 		return nil, &ValidationError{Name: "ID", err: fmt.Errorf("missing Guild.ID for update")}
 	}
 	_spec.Node.ID.Value = id
-	if nodes := guo.mutation.RemovedWarningsIDs(); len(nodes) > 0 {
+	if guo.mutation.WarningsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   guild.WarningsTable,
+			Columns: []string{guild.WarningsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeInt,
+					Column: warning.FieldID,
+				},
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := guo.mutation.RemovedWarningsIDs(); len(nodes) > 0 && !guo.mutation.WarningsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
 			Inverse: false,
@@ -330,9 +372,9 @@ func (guo *GuildUpdateOne) sqlSave(ctx context.Context) (gu *Guild, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
-	gu = &Guild{config: guo.config}
-	_spec.Assign = gu.assignValues
-	_spec.ScanValues = gu.scanValues()
+	_node = &Guild{config: guo.config}
+	_spec.Assign = _node.assignValues
+	_spec.ScanValues = _node.scanValues()
 	if err = sqlgraph.UpdateNode(ctx, guo.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{guild.Label}
@@ -341,5 +383,5 @@ func (guo *GuildUpdateOne) sqlSave(ctx context.Context) (gu *Guild, err error) {
 		}
 		return nil, err
 	}
-	return gu, nil
+	return _node, nil
 }

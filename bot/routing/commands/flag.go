@@ -49,3 +49,26 @@ func (s StringFlag) Usage() string {
 func (s StringFlag) Register(f *flag.FlagSet) {
 	f.StringP(s.LongFlag, s.ShortFlag, s.Value, s.FlagUsage)
 }
+
+type UInt64Flag struct {
+	LongFlag  string
+	ShortFlag string
+	FlagUsage string
+	Value     uint64
+}
+
+func (s UInt64Flag) Long() string {
+	return s.LongFlag
+}
+
+func (s UInt64Flag) Short() string {
+	return s.ShortFlag
+}
+
+func (s UInt64Flag) Usage() string {
+	return s.FlagUsage
+}
+
+func (s UInt64Flag) Register(f *flag.FlagSet) {
+	f.Uint64P(s.LongFlag, s.ShortFlag, s.Value, s.FlagUsage)
+}

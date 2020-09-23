@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/diamondburned/arikawa/discord"
 	"github.com/facebook/ent/dialect/sql/sqlgraph"
 	"github.com/facebook/ent/schema/field"
 )
@@ -17,6 +18,12 @@ type GuildCreate struct {
 	config
 	mutation *GuildMutation
 	hooks    []Hook
+}
+
+// SetID sets the id field.
+func (gc *GuildCreate) SetID(di discord.GuildID) *GuildCreate {
+	gc.mutation.SetID(di)
+	return gc
 }
 
 // AddWarningIDs adds the warnings edge to Warning by ids.
@@ -41,20 +48,23 @@ func (gc *GuildCreate) Mutation() *GuildMutation {
 
 // Save creates the Guild in the database.
 func (gc *GuildCreate) Save(ctx context.Context) (*Guild, error) {
-	if err := gc.preSave(); err != nil {
-		return nil, err
-	}
 	var (
 		err  error
 		node *Guild
 	)
 	if len(gc.hooks) == 0 {
+		if err = gc.check(); err != nil {
+			return nil, err
+		}
 		node, err = gc.sqlSave(ctx)
 	} else {
 		var mut Mutator = MutateFunc(func(ctx context.Context, m Mutation) (Value, error) {
 			mutation, ok := m.(*GuildMutation)
 			if !ok {
 				return nil, fmt.Errorf("unexpected mutation type %T", m)
+			}
+			if err = gc.check(); err != nil {
+				return nil, err
 			}
 			gc.mutation = mutation
 			node, err = gc.sqlSave(ctx)
@@ -80,34 +90,40 @@ func (gc *GuildCreate) SaveX(ctx context.Context) *Guild {
 	return v
 }
 
-func (gc *GuildCreate) preSave() error {
+// check runs all checks and user-defined validators on the builder.
+func (gc *GuildCreate) check() error {
 	return nil
 }
 
 func (gc *GuildCreate) sqlSave(ctx context.Context) (*Guild, error) {
-	gu, _spec := gc.createSpec()
+	_node, _spec := gc.createSpec()
 	if err := sqlgraph.CreateNode(ctx, gc.driver, _spec); err != nil {
 		if cerr, ok := isSQLConstraintError(err); ok {
 			err = cerr
 		}
 		return nil, err
 	}
-	id := _spec.ID.Value.(int64)
-	gu.ID = int(id)
-	return gu, nil
+	if _node.ID == 0 {
+		_node.ID = _spec.ID.Value.(discord.GuildID)
+	}
+	return _node, nil
 }
 
 func (gc *GuildCreate) createSpec() (*Guild, *sqlgraph.CreateSpec) {
 	var (
-		gu    = &Guild{config: gc.config}
+		_node = &Guild{config: gc.config}
 		_spec = &sqlgraph.CreateSpec{
 			Table: guild.Table,
 			ID: &sqlgraph.FieldSpec{
-				Type:   field.TypeInt,
+				Type:   field.TypeUint64,
 				Column: guild.FieldID,
 			},
 		}
 	)
+	if id, ok := gc.mutation.ID(); ok {
+		_node.ID = id
+		_spec.ID.Value = id
+	}
 	if nodes := gc.mutation.WarningsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -127,7 +143,7 @@ func (gc *GuildCreate) createSpec() (*Guild, *sqlgraph.CreateSpec) {
 		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
-	return gu, _spec
+	return _node, _spec
 }
 
 // GuildCreateBulk is the builder for creating a bulk of Guild entities.
@@ -145,12 +161,12 @@ func (gcb *GuildCreateBulk) Save(ctx context.Context) ([]*Guild, error) {
 		func(i int, root context.Context) {
 			builder := gcb.builders[i]
 			var mut Mutator = MutateFunc(func(ctx context.Context, m Mutation) (Value, error) {
-				if err := builder.preSave(); err != nil {
-					return nil, err
-				}
 				mutation, ok := m.(*GuildMutation)
 				if !ok {
 					return nil, fmt.Errorf("unexpected mutation type %T", m)
+				}
+				if err := builder.check(); err != nil {
+					return nil, err
 				}
 				builder.mutation = mutation
 				nodes[i], specs[i] = builder.createSpec()
@@ -169,8 +185,10 @@ func (gcb *GuildCreateBulk) Save(ctx context.Context) ([]*Guild, error) {
 				if err != nil {
 					return nil, err
 				}
-				id := specs[i].ID.Value.(int64)
-				nodes[i].ID = int(id)
+				if nodes[i].ID == 0 {
+					id := specs[i].ID.Value.(int64)
+					nodes[i].ID = discord.GuildID(id)
+				}
 				return nodes[i], nil
 			})
 			for i := len(builder.hooks) - 1; i >= 0; i-- {

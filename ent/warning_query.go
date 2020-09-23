@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"baritone/ent/guild"
 	"baritone/ent/predicate"
 	"baritone/ent/user"
 	"baritone/ent/warning"
@@ -11,6 +12,7 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/diamondburned/arikawa/discord"
 	"github.com/facebook/ent/dialect/sql"
 	"github.com/facebook/ent/dialect/sql/sqlgraph"
 	"github.com/facebook/ent/schema/field"
@@ -25,8 +27,10 @@ type WarningQuery struct {
 	unique     []string
 	predicates []predicate.Warning
 	// eager-loading edges.
-	withUser *UserQuery
-	withFKs  bool
+	withUser     *UserQuery
+	withIssuedBy *UserQuery
+	withGuild    *GuildQuery
+	withFKs      bool
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -63,8 +67,12 @@ func (wq *WarningQuery) QueryUser() *UserQuery {
 		if err := wq.prepareQuery(ctx); err != nil {
 			return nil, err
 		}
+		selector := wq.sqlQuery()
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
 		step := sqlgraph.NewStep(
-			sqlgraph.From(warning.Table, warning.FieldID, wq.sqlQuery()),
+			sqlgraph.From(warning.Table, warning.FieldID, selector),
 			sqlgraph.To(user.Table, user.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, false, warning.UserTable, warning.UserColumn),
 		)
@@ -74,25 +82,69 @@ func (wq *WarningQuery) QueryUser() *UserQuery {
 	return query
 }
 
+// QueryIssuedBy chains the current query on the issuedBy edge.
+func (wq *WarningQuery) QueryIssuedBy() *UserQuery {
+	query := &UserQuery{config: wq.config}
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := wq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := wq.sqlQuery()
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(warning.Table, warning.FieldID, selector),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, warning.IssuedByTable, warning.IssuedByColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(wq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryGuild chains the current query on the guild edge.
+func (wq *WarningQuery) QueryGuild() *GuildQuery {
+	query := &GuildQuery{config: wq.config}
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := wq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := wq.sqlQuery()
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(warning.Table, warning.FieldID, selector),
+			sqlgraph.To(guild.Table, guild.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, warning.GuildTable, warning.GuildColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(wq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
 // First returns the first Warning entity in the query. Returns *NotFoundError when no warning was found.
 func (wq *WarningQuery) First(ctx context.Context) (*Warning, error) {
-	ws, err := wq.Limit(1).All(ctx)
+	nodes, err := wq.Limit(1).All(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if len(ws) == 0 {
+	if len(nodes) == 0 {
 		return nil, &NotFoundError{warning.Label}
 	}
-	return ws[0], nil
+	return nodes[0], nil
 }
 
 // FirstX is like First, but panics if an error occurs.
 func (wq *WarningQuery) FirstX(ctx context.Context) *Warning {
-	w, err := wq.First(ctx)
+	node, err := wq.First(ctx)
 	if err != nil && !IsNotFound(err) {
 		panic(err)
 	}
-	return w
+	return node
 }
 
 // FirstID returns the first Warning id in the query. Returns *NotFoundError when no id was found.
@@ -119,13 +171,13 @@ func (wq *WarningQuery) FirstXID(ctx context.Context) int {
 
 // Only returns the only Warning entity in the query, returns an error if not exactly one entity was returned.
 func (wq *WarningQuery) Only(ctx context.Context) (*Warning, error) {
-	ws, err := wq.Limit(2).All(ctx)
+	nodes, err := wq.Limit(2).All(ctx)
 	if err != nil {
 		return nil, err
 	}
-	switch len(ws) {
+	switch len(nodes) {
 	case 1:
-		return ws[0], nil
+		return nodes[0], nil
 	case 0:
 		return nil, &NotFoundError{warning.Label}
 	default:
@@ -135,11 +187,11 @@ func (wq *WarningQuery) Only(ctx context.Context) (*Warning, error) {
 
 // OnlyX is like Only, but panics if an error occurs.
 func (wq *WarningQuery) OnlyX(ctx context.Context) *Warning {
-	w, err := wq.Only(ctx)
+	node, err := wq.Only(ctx)
 	if err != nil {
 		panic(err)
 	}
-	return w
+	return node
 }
 
 // OnlyID returns the only Warning id in the query, returns an error if not exactly one id was returned.
@@ -178,11 +230,11 @@ func (wq *WarningQuery) All(ctx context.Context) ([]*Warning, error) {
 
 // AllX is like All, but panics if an error occurs.
 func (wq *WarningQuery) AllX(ctx context.Context) []*Warning {
-	ws, err := wq.All(ctx)
+	nodes, err := wq.All(ctx)
 	if err != nil {
 		panic(err)
 	}
-	return ws
+	return nodes
 }
 
 // IDs executes the query and returns a list of Warning ids.
@@ -264,6 +316,28 @@ func (wq *WarningQuery) WithUser(opts ...func(*UserQuery)) *WarningQuery {
 	return wq
 }
 
+//  WithIssuedBy tells the query-builder to eager-loads the nodes that are connected to
+// the "issuedBy" edge. The optional arguments used to configure the query builder of the edge.
+func (wq *WarningQuery) WithIssuedBy(opts ...func(*UserQuery)) *WarningQuery {
+	query := &UserQuery{config: wq.config}
+	for _, opt := range opts {
+		opt(query)
+	}
+	wq.withIssuedBy = query
+	return wq
+}
+
+//  WithGuild tells the query-builder to eager-loads the nodes that are connected to
+// the "guild" edge. The optional arguments used to configure the query builder of the edge.
+func (wq *WarningQuery) WithGuild(opts ...func(*GuildQuery)) *WarningQuery {
+	query := &GuildQuery{config: wq.config}
+	for _, opt := range opts {
+		opt(query)
+	}
+	wq.withGuild = query
+	return wq
+}
+
 // GroupBy used to group vertices by one or more fields/columns.
 // It is often used with aggregate functions, like: count, max, mean, min, sum.
 //
@@ -331,11 +405,13 @@ func (wq *WarningQuery) sqlAll(ctx context.Context) ([]*Warning, error) {
 		nodes       = []*Warning{}
 		withFKs     = wq.withFKs
 		_spec       = wq.querySpec()
-		loadedTypes = [1]bool{
+		loadedTypes = [3]bool{
 			wq.withUser != nil,
+			wq.withIssuedBy != nil,
+			wq.withGuild != nil,
 		}
 	)
-	if wq.withUser != nil {
+	if wq.withUser != nil || wq.withIssuedBy != nil || wq.withGuild != nil {
 		withFKs = true
 	}
 	if withFKs {
@@ -366,8 +442,8 @@ func (wq *WarningQuery) sqlAll(ctx context.Context) ([]*Warning, error) {
 	}
 
 	if query := wq.withUser; query != nil {
-		ids := make([]uint64, 0, len(nodes))
-		nodeids := make(map[uint64][]*Warning)
+		ids := make([]discord.UserID, 0, len(nodes))
+		nodeids := make(map[discord.UserID][]*Warning)
 		for i := range nodes {
 			if fk := nodes[i].warning_user; fk != nil {
 				ids = append(ids, *fk)
@@ -386,6 +462,56 @@ func (wq *WarningQuery) sqlAll(ctx context.Context) ([]*Warning, error) {
 			}
 			for i := range nodes {
 				nodes[i].Edges.User = n
+			}
+		}
+	}
+
+	if query := wq.withIssuedBy; query != nil {
+		ids := make([]discord.UserID, 0, len(nodes))
+		nodeids := make(map[discord.UserID][]*Warning)
+		for i := range nodes {
+			if fk := nodes[i].warning_issued_by; fk != nil {
+				ids = append(ids, *fk)
+				nodeids[*fk] = append(nodeids[*fk], nodes[i])
+			}
+		}
+		query.Where(user.IDIn(ids...))
+		neighbors, err := query.All(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, n := range neighbors {
+			nodes, ok := nodeids[n.ID]
+			if !ok {
+				return nil, fmt.Errorf(`unexpected foreign-key "warning_issued_by" returned %v`, n.ID)
+			}
+			for i := range nodes {
+				nodes[i].Edges.IssuedBy = n
+			}
+		}
+	}
+
+	if query := wq.withGuild; query != nil {
+		ids := make([]discord.GuildID, 0, len(nodes))
+		nodeids := make(map[discord.GuildID][]*Warning)
+		for i := range nodes {
+			if fk := nodes[i].warning_guild; fk != nil {
+				ids = append(ids, *fk)
+				nodeids[*fk] = append(nodeids[*fk], nodes[i])
+			}
+		}
+		query.Where(guild.IDIn(ids...))
+		neighbors, err := query.All(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, n := range neighbors {
+			nodes, ok := nodeids[n.ID]
+			if !ok {
+				return nil, fmt.Errorf(`unexpected foreign-key "warning_guild" returned %v`, n.ID)
+			}
+			for i := range nodes {
+				nodes[i].Edges.Guild = n
 			}
 		}
 	}
@@ -435,7 +561,7 @@ func (wq *WarningQuery) querySpec() *sqlgraph.QuerySpec {
 	if ps := wq.order; len(ps) > 0 {
 		_spec.Order = func(selector *sql.Selector) {
 			for i := range ps {
-				ps[i](selector)
+				ps[i](selector, warning.ValidColumn)
 			}
 		}
 	}
@@ -454,7 +580,7 @@ func (wq *WarningQuery) sqlQuery() *sql.Selector {
 		p(selector)
 	}
 	for _, p := range wq.order {
-		p(selector)
+		p(selector, warning.ValidColumn)
 	}
 	if offset := wq.offset; offset != nil {
 		// limit is mandatory for offset clause. We start
@@ -689,8 +815,17 @@ func (wgb *WarningGroupBy) BoolX(ctx context.Context) bool {
 }
 
 func (wgb *WarningGroupBy) sqlScan(ctx context.Context, v interface{}) error {
+	for _, f := range wgb.fields {
+		if !warning.ValidColumn(f) {
+			return &ValidationError{Name: f, err: fmt.Errorf("invalid field %q for group-by", f)}
+		}
+	}
+	selector := wgb.sqlQuery()
+	if err := selector.Err(); err != nil {
+		return err
+	}
 	rows := &sql.Rows{}
-	query, args := wgb.sqlQuery().Query()
+	query, args := selector.Query()
 	if err := wgb.driver.Query(ctx, query, args, rows); err != nil {
 		return err
 	}
@@ -703,7 +838,7 @@ func (wgb *WarningGroupBy) sqlQuery() *sql.Selector {
 	columns := make([]string, 0, len(wgb.fields)+len(wgb.fns))
 	columns = append(columns, wgb.fields...)
 	for _, fn := range wgb.fns {
-		columns = append(columns, fn(selector))
+		columns = append(columns, fn(selector, warning.ValidColumn))
 	}
 	return selector.Select(columns...).GroupBy(wgb.fields...)
 }
@@ -923,6 +1058,11 @@ func (ws *WarningSelect) BoolX(ctx context.Context) bool {
 }
 
 func (ws *WarningSelect) sqlScan(ctx context.Context, v interface{}) error {
+	for _, f := range ws.fields {
+		if !warning.ValidColumn(f) {
+			return &ValidationError{Name: f, err: fmt.Errorf("invalid field %q for selection", f)}
+		}
+	}
 	rows := &sql.Rows{}
 	query, args := ws.sqlQuery().Query()
 	if err := ws.driver.Query(ctx, query, args, rows); err != nil {

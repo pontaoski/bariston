@@ -14,6 +14,10 @@ const (
 
 	// EdgeUser holds the string denoting the user edge name in mutations.
 	EdgeUser = "user"
+	// EdgeIssuedBy holds the string denoting the issuedby edge name in mutations.
+	EdgeIssuedBy = "issuedBy"
+	// EdgeGuild holds the string denoting the guild edge name in mutations.
+	EdgeGuild = "guild"
 
 	// Table holds the table name of the warning in the database.
 	Table = "warnings"
@@ -24,6 +28,20 @@ const (
 	UserInverseTable = "users"
 	// UserColumn is the table column denoting the user relation/edge.
 	UserColumn = "warning_user"
+	// IssuedByTable is the table the holds the issuedBy relation/edge.
+	IssuedByTable = "warnings"
+	// IssuedByInverseTable is the table name for the User entity.
+	// It exists in this package in order to avoid circular dependency with the "user" package.
+	IssuedByInverseTable = "users"
+	// IssuedByColumn is the table column denoting the issuedBy relation/edge.
+	IssuedByColumn = "warning_issued_by"
+	// GuildTable is the table the holds the guild relation/edge.
+	GuildTable = "warnings"
+	// GuildInverseTable is the table name for the Guild entity.
+	// It exists in this package in order to avoid circular dependency with the "guild" package.
+	GuildInverseTable = "guilds"
+	// GuildColumn is the table column denoting the guild relation/edge.
+	GuildColumn = "warning_guild"
 )
 
 // Columns holds all SQL columns for warning fields.
@@ -37,4 +55,21 @@ var Columns = []string{
 var ForeignKeys = []string{
 	"guild_warnings",
 	"warning_user",
+	"warning_issued_by",
+	"warning_guild",
+}
+
+// ValidColumn reports if the column name is valid (part of the table columns).
+func ValidColumn(column string) bool {
+	for i := range Columns {
+		if column == Columns[i] {
+			return true
+		}
+	}
+	for i := range ForeignKeys {
+		if column == ForeignKeys[i] {
+			return true
+		}
+	}
+	return false
 }

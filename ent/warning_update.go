@@ -3,13 +3,16 @@
 package ent
 
 import (
+	"baritone/ent/guild"
 	"baritone/ent/predicate"
 	"baritone/ent/user"
 	"baritone/ent/warning"
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
+	"github.com/diamondburned/arikawa/discord"
 	"github.com/facebook/ent/dialect/sql"
 	"github.com/facebook/ent/dialect/sql/sqlgraph"
 	"github.com/facebook/ent/schema/field"
@@ -42,16 +45,8 @@ func (wu *WarningUpdate) SetDate(t time.Time) *WarningUpdate {
 }
 
 // SetUserID sets the user edge to User by id.
-func (wu *WarningUpdate) SetUserID(id uint64) *WarningUpdate {
+func (wu *WarningUpdate) SetUserID(id discord.UserID) *WarningUpdate {
 	wu.mutation.SetUserID(id)
-	return wu
-}
-
-// SetNillableUserID sets the user edge to User by id if the given value is not nil.
-func (wu *WarningUpdate) SetNillableUserID(id *uint64) *WarningUpdate {
-	if id != nil {
-		wu = wu.SetUserID(*id)
-	}
 	return wu
 }
 
@@ -60,31 +55,70 @@ func (wu *WarningUpdate) SetUser(u *User) *WarningUpdate {
 	return wu.SetUserID(u.ID)
 }
 
+// SetIssuedByID sets the issuedBy edge to User by id.
+func (wu *WarningUpdate) SetIssuedByID(id discord.UserID) *WarningUpdate {
+	wu.mutation.SetIssuedByID(id)
+	return wu
+}
+
+// SetIssuedBy sets the issuedBy edge to User.
+func (wu *WarningUpdate) SetIssuedBy(u *User) *WarningUpdate {
+	return wu.SetIssuedByID(u.ID)
+}
+
+// SetGuildID sets the guild edge to Guild by id.
+func (wu *WarningUpdate) SetGuildID(id discord.GuildID) *WarningUpdate {
+	wu.mutation.SetGuildID(id)
+	return wu
+}
+
+// SetGuild sets the guild edge to Guild.
+func (wu *WarningUpdate) SetGuild(g *Guild) *WarningUpdate {
+	return wu.SetGuildID(g.ID)
+}
+
 // Mutation returns the WarningMutation object of the builder.
 func (wu *WarningUpdate) Mutation() *WarningMutation {
 	return wu.mutation
 }
 
-// ClearUser clears the user edge to User.
+// ClearUser clears the "user" edge to type User.
 func (wu *WarningUpdate) ClearUser() *WarningUpdate {
 	wu.mutation.ClearUser()
 	return wu
 }
 
+// ClearIssuedBy clears the "issuedBy" edge to type User.
+func (wu *WarningUpdate) ClearIssuedBy() *WarningUpdate {
+	wu.mutation.ClearIssuedBy()
+	return wu
+}
+
+// ClearGuild clears the "guild" edge to type Guild.
+func (wu *WarningUpdate) ClearGuild() *WarningUpdate {
+	wu.mutation.ClearGuild()
+	return wu
+}
+
 // Save executes the query and returns the number of rows/vertices matched by this operation.
 func (wu *WarningUpdate) Save(ctx context.Context) (int, error) {
-
 	var (
 		err      error
 		affected int
 	)
 	if len(wu.hooks) == 0 {
+		if err = wu.check(); err != nil {
+			return 0, err
+		}
 		affected, err = wu.sqlSave(ctx)
 	} else {
 		var mut Mutator = MutateFunc(func(ctx context.Context, m Mutation) (Value, error) {
 			mutation, ok := m.(*WarningMutation)
 			if !ok {
 				return nil, fmt.Errorf("unexpected mutation type %T", m)
+			}
+			if err = wu.check(); err != nil {
+				return 0, err
 			}
 			wu.mutation = mutation
 			affected, err = wu.sqlSave(ctx)
@@ -121,6 +155,20 @@ func (wu *WarningUpdate) ExecX(ctx context.Context) {
 	if err := wu.Exec(ctx); err != nil {
 		panic(err)
 	}
+}
+
+// check runs all checks and user-defined validators on the builder.
+func (wu *WarningUpdate) check() error {
+	if _, ok := wu.mutation.UserID(); wu.mutation.UserCleared() && !ok {
+		return errors.New("ent: clearing a required unique edge \"user\"")
+	}
+	if _, ok := wu.mutation.IssuedByID(); wu.mutation.IssuedByCleared() && !ok {
+		return errors.New("ent: clearing a required unique edge \"issuedBy\"")
+	}
+	if _, ok := wu.mutation.GuildID(); wu.mutation.GuildCleared() && !ok {
+		return errors.New("ent: clearing a required unique edge \"guild\"")
+	}
+	return nil
 }
 
 func (wu *WarningUpdate) sqlSave(ctx context.Context) (n int, err error) {
@@ -190,6 +238,76 @@ func (wu *WarningUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if wu.mutation.IssuedByCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   warning.IssuedByTable,
+			Columns: []string{warning.IssuedByColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeUint64,
+					Column: user.FieldID,
+				},
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := wu.mutation.IssuedByIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   warning.IssuedByTable,
+			Columns: []string{warning.IssuedByColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeUint64,
+					Column: user.FieldID,
+				},
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if wu.mutation.GuildCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   warning.GuildTable,
+			Columns: []string{warning.GuildColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeUint64,
+					Column: guild.FieldID,
+				},
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := wu.mutation.GuildIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   warning.GuildTable,
+			Columns: []string{warning.GuildColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeUint64,
+					Column: guild.FieldID,
+				},
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if n, err = sqlgraph.UpdateNodes(ctx, wu.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{warning.Label}
@@ -221,16 +339,8 @@ func (wuo *WarningUpdateOne) SetDate(t time.Time) *WarningUpdateOne {
 }
 
 // SetUserID sets the user edge to User by id.
-func (wuo *WarningUpdateOne) SetUserID(id uint64) *WarningUpdateOne {
+func (wuo *WarningUpdateOne) SetUserID(id discord.UserID) *WarningUpdateOne {
 	wuo.mutation.SetUserID(id)
-	return wuo
-}
-
-// SetNillableUserID sets the user edge to User by id if the given value is not nil.
-func (wuo *WarningUpdateOne) SetNillableUserID(id *uint64) *WarningUpdateOne {
-	if id != nil {
-		wuo = wuo.SetUserID(*id)
-	}
 	return wuo
 }
 
@@ -239,31 +349,70 @@ func (wuo *WarningUpdateOne) SetUser(u *User) *WarningUpdateOne {
 	return wuo.SetUserID(u.ID)
 }
 
+// SetIssuedByID sets the issuedBy edge to User by id.
+func (wuo *WarningUpdateOne) SetIssuedByID(id discord.UserID) *WarningUpdateOne {
+	wuo.mutation.SetIssuedByID(id)
+	return wuo
+}
+
+// SetIssuedBy sets the issuedBy edge to User.
+func (wuo *WarningUpdateOne) SetIssuedBy(u *User) *WarningUpdateOne {
+	return wuo.SetIssuedByID(u.ID)
+}
+
+// SetGuildID sets the guild edge to Guild by id.
+func (wuo *WarningUpdateOne) SetGuildID(id discord.GuildID) *WarningUpdateOne {
+	wuo.mutation.SetGuildID(id)
+	return wuo
+}
+
+// SetGuild sets the guild edge to Guild.
+func (wuo *WarningUpdateOne) SetGuild(g *Guild) *WarningUpdateOne {
+	return wuo.SetGuildID(g.ID)
+}
+
 // Mutation returns the WarningMutation object of the builder.
 func (wuo *WarningUpdateOne) Mutation() *WarningMutation {
 	return wuo.mutation
 }
 
-// ClearUser clears the user edge to User.
+// ClearUser clears the "user" edge to type User.
 func (wuo *WarningUpdateOne) ClearUser() *WarningUpdateOne {
 	wuo.mutation.ClearUser()
 	return wuo
 }
 
+// ClearIssuedBy clears the "issuedBy" edge to type User.
+func (wuo *WarningUpdateOne) ClearIssuedBy() *WarningUpdateOne {
+	wuo.mutation.ClearIssuedBy()
+	return wuo
+}
+
+// ClearGuild clears the "guild" edge to type Guild.
+func (wuo *WarningUpdateOne) ClearGuild() *WarningUpdateOne {
+	wuo.mutation.ClearGuild()
+	return wuo
+}
+
 // Save executes the query and returns the updated entity.
 func (wuo *WarningUpdateOne) Save(ctx context.Context) (*Warning, error) {
-
 	var (
 		err  error
 		node *Warning
 	)
 	if len(wuo.hooks) == 0 {
+		if err = wuo.check(); err != nil {
+			return nil, err
+		}
 		node, err = wuo.sqlSave(ctx)
 	} else {
 		var mut Mutator = MutateFunc(func(ctx context.Context, m Mutation) (Value, error) {
 			mutation, ok := m.(*WarningMutation)
 			if !ok {
 				return nil, fmt.Errorf("unexpected mutation type %T", m)
+			}
+			if err = wuo.check(); err != nil {
+				return nil, err
 			}
 			wuo.mutation = mutation
 			node, err = wuo.sqlSave(ctx)
@@ -282,11 +431,11 @@ func (wuo *WarningUpdateOne) Save(ctx context.Context) (*Warning, error) {
 
 // SaveX is like Save, but panics if an error occurs.
 func (wuo *WarningUpdateOne) SaveX(ctx context.Context) *Warning {
-	w, err := wuo.Save(ctx)
+	node, err := wuo.Save(ctx)
 	if err != nil {
 		panic(err)
 	}
-	return w
+	return node
 }
 
 // Exec executes the query on the entity.
@@ -302,7 +451,21 @@ func (wuo *WarningUpdateOne) ExecX(ctx context.Context) {
 	}
 }
 
-func (wuo *WarningUpdateOne) sqlSave(ctx context.Context) (w *Warning, err error) {
+// check runs all checks and user-defined validators on the builder.
+func (wuo *WarningUpdateOne) check() error {
+	if _, ok := wuo.mutation.UserID(); wuo.mutation.UserCleared() && !ok {
+		return errors.New("ent: clearing a required unique edge \"user\"")
+	}
+	if _, ok := wuo.mutation.IssuedByID(); wuo.mutation.IssuedByCleared() && !ok {
+		return errors.New("ent: clearing a required unique edge \"issuedBy\"")
+	}
+	if _, ok := wuo.mutation.GuildID(); wuo.mutation.GuildCleared() && !ok {
+		return errors.New("ent: clearing a required unique edge \"guild\"")
+	}
+	return nil
+}
+
+func (wuo *WarningUpdateOne) sqlSave(ctx context.Context) (_node *Warning, err error) {
 	_spec := &sqlgraph.UpdateSpec{
 		Node: &sqlgraph.NodeSpec{
 			Table:   warning.Table,
@@ -367,9 +530,79 @@ func (wuo *WarningUpdateOne) sqlSave(ctx context.Context) (w *Warning, err error
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
-	w = &Warning{config: wuo.config}
-	_spec.Assign = w.assignValues
-	_spec.ScanValues = w.scanValues()
+	if wuo.mutation.IssuedByCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   warning.IssuedByTable,
+			Columns: []string{warning.IssuedByColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeUint64,
+					Column: user.FieldID,
+				},
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := wuo.mutation.IssuedByIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   warning.IssuedByTable,
+			Columns: []string{warning.IssuedByColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeUint64,
+					Column: user.FieldID,
+				},
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if wuo.mutation.GuildCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   warning.GuildTable,
+			Columns: []string{warning.GuildColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeUint64,
+					Column: guild.FieldID,
+				},
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := wuo.mutation.GuildIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   warning.GuildTable,
+			Columns: []string{warning.GuildColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeUint64,
+					Column: guild.FieldID,
+				},
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	_node = &Warning{config: wuo.config}
+	_spec.Assign = _node.assignValues
+	_spec.ScanValues = _node.scanValues()
 	if err = sqlgraph.UpdateNode(ctx, wuo.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{warning.Label}
@@ -378,5 +611,5 @@ func (wuo *WarningUpdateOne) sqlSave(ctx context.Context) (w *Warning, err error
 		}
 		return nil, err
 	}
-	return w, nil
+	return _node, nil
 }

@@ -68,6 +68,8 @@ type Command struct {
 	Action       Action
 	DeleteAction Action
 	Hidden       bool
+
+	Subcommands []*Command
 }
 
 func (c Command) GAction() Action {

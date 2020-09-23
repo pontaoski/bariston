@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/diamondburned/arikawa/discord"
 	"github.com/facebook/ent/dialect/sql"
 )
 
@@ -14,7 +15,7 @@ import (
 type Guild struct {
 	config
 	// ID of the ent.
-	ID int `json:"id,omitempty"`
+	ID discord.GuildID `json:"id,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the GuildQuery when eager-loading is set.
 	Edges GuildEdges `json:"edges"`
@@ -55,7 +56,7 @@ func (gu *Guild) assignValues(values ...interface{}) error {
 	if !ok {
 		return fmt.Errorf("unexpected type %T for field id", value)
 	}
-	gu.ID = int(value.Int64)
+	gu.ID = discord.GuildID(value.Int64)
 	values = values[1:]
 	return nil
 }

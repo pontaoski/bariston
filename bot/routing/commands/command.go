@@ -10,14 +10,30 @@ import (
 var commandRadix = iradix.New()
 var commandList []types.Command
 
-func RegisterCommand(command types.Command) {
-	for _, match := range command.Matches {
-		commandRadix, _, _ = commandRadix.Insert([]byte(match), command)
+func recurseRegistration(prefix string, command *types.Command) {
+	if prefix == "" {
+		for _, match := range command.Matches {
+			commandRadix, _, _ = commandRadix.Insert([]byte(match), command)
+			for _, sub := range command.Subcommands {
+				recurseRegistration(match, sub)
+			}
+		}
+	} else {
+		for _, match := range command.Matches {
+			commandRadix, _, _ = commandRadix.Insert([]byte(prefix+" "+match), command)
+			for _, sub := range command.Subcommands {
+				recurseRegistration(prefix+" "+match, sub)
+			}
+		}
 	}
+}
+
+func RegisterCommand(command types.Command) {
+	recurseRegistration("", &command)
 	commandList = append(commandList, command)
 }
 
-func LexCommand(content string) (cmd types.Command, ctx types.Context, ok bool) {
+func LexCommand(content string) (cmd *types.Command, ctx types.Context, ok bool) {
 	if content == "" {
 		return
 	}
@@ -27,7 +43,12 @@ func LexCommand(content string) (cmd types.Command, ctx types.Context, ok bool) 
 	}
 	content = strings.TrimSpace(strings.TrimPrefix(content, string(prefix)))
 	ctx.RawContent = content
-	cmd = value.(types.Command)
+	ctx.Data = make(map[string]interface{})
+	cmd = value.(*types.Command)
+	if cmd.Action == nil {
+		ok = false
+		return
+	}
 	for _, flag := range cmd.Flags {
 		flag.Register(&ctx.FlagSet)
 	}

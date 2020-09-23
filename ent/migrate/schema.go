@@ -37,6 +37,8 @@ var (
 		{Name: "date", Type: field.TypeTime},
 		{Name: "guild_warnings", Type: field.TypeInt, Nullable: true},
 		{Name: "warning_user", Type: field.TypeInt, Nullable: true},
+		{Name: "warning_issued_by", Type: field.TypeInt, Nullable: true},
+		{Name: "warning_guild", Type: field.TypeInt, Nullable: true},
 	}
 	// WarningsTable holds the schema information for the "warnings" table.
 	WarningsTable = &schema.Table{
@@ -58,6 +60,20 @@ var (
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
+			{
+				Symbol:  "warnings_users_issuedBy",
+				Columns: []*schema.Column{WarningsColumns[5]},
+
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+			{
+				Symbol:  "warnings_guilds_guild",
+				Columns: []*schema.Column{WarningsColumns[6]},
+
+				RefColumns: []*schema.Column{GuildsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
 		},
 	}
 	// Tables holds all the tables in the schema.
@@ -71,4 +87,6 @@ var (
 func init() {
 	WarningsTable.ForeignKeys[0].RefTable = GuildsTable
 	WarningsTable.ForeignKeys[1].RefTable = UsersTable
+	WarningsTable.ForeignKeys[2].RefTable = UsersTable
+	WarningsTable.ForeignKeys[3].RefTable = GuildsTable
 }

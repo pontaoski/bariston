@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/diamondburned/arikawa/discord"
 	"github.com/facebook/ent/dialect/sql"
 )
 
@@ -14,7 +15,7 @@ import (
 type User struct {
 	config
 	// ID of the ent.
-	ID uint64 `json:"id,omitempty"`
+	ID discord.UserID `json:"id,omitempty"`
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -34,7 +35,7 @@ func (u *User) assignValues(values ...interface{}) error {
 	if !ok {
 		return fmt.Errorf("unexpected type %T for field id", value)
 	}
-	u.ID = uint64(value.Int64)
+	u.ID = discord.UserID(value.Int64)
 	values = values[1:]
 	return nil
 }

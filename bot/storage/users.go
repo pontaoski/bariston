@@ -2,9 +2,11 @@ package storage
 
 import (
 	"context"
+
+	"github.com/diamondburned/arikawa/discord"
 )
 
-func RegisterUser(ID uint64) {
+func RegisterUser(ID discord.UserID) {
 	if user, _ := Client.User.Get(context.Background(), ID); user != nil {
 		return
 	}

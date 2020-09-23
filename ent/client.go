@@ -13,6 +13,7 @@ import (
 	"baritone/ent/user"
 	"baritone/ent/warning"
 
+	"github.com/diamondburned/arikawa/discord"
 	"github.com/facebook/ent/dialect"
 	"github.com/facebook/ent/dialect/sql"
 	"github.com/facebook/ent/dialect/sql/sqlgraph"
@@ -171,7 +172,7 @@ func (c *GuildClient) UpdateOne(gu *Guild) *GuildUpdateOne {
 }
 
 // UpdateOneID returns an update builder for the given id.
-func (c *GuildClient) UpdateOneID(id int) *GuildUpdateOne {
+func (c *GuildClient) UpdateOneID(id discord.GuildID) *GuildUpdateOne {
 	mutation := newGuildMutation(c.config, OpUpdateOne, withGuildID(id))
 	return &GuildUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
@@ -188,7 +189,7 @@ func (c *GuildClient) DeleteOne(gu *Guild) *GuildDeleteOne {
 }
 
 // DeleteOneID returns a delete builder for the given id.
-func (c *GuildClient) DeleteOneID(id int) *GuildDeleteOne {
+func (c *GuildClient) DeleteOneID(id discord.GuildID) *GuildDeleteOne {
 	builder := c.Delete().Where(guild.ID(id))
 	builder.mutation.id = &id
 	builder.mutation.op = OpDeleteOne
@@ -201,17 +202,17 @@ func (c *GuildClient) Query() *GuildQuery {
 }
 
 // Get returns a Guild entity by its id.
-func (c *GuildClient) Get(ctx context.Context, id int) (*Guild, error) {
+func (c *GuildClient) Get(ctx context.Context, id discord.GuildID) (*Guild, error) {
 	return c.Query().Where(guild.ID(id)).Only(ctx)
 }
 
 // GetX is like Get, but panics if an error occurs.
-func (c *GuildClient) GetX(ctx context.Context, id int) *Guild {
-	gu, err := c.Get(ctx, id)
+func (c *GuildClient) GetX(ctx context.Context, id discord.GuildID) *Guild {
+	obj, err := c.Get(ctx, id)
 	if err != nil {
 		panic(err)
 	}
-	return gu
+	return obj
 }
 
 // QueryWarnings queries the warnings edge of a Guild.
@@ -275,7 +276,7 @@ func (c *UserClient) UpdateOne(u *User) *UserUpdateOne {
 }
 
 // UpdateOneID returns an update builder for the given id.
-func (c *UserClient) UpdateOneID(id uint64) *UserUpdateOne {
+func (c *UserClient) UpdateOneID(id discord.UserID) *UserUpdateOne {
 	mutation := newUserMutation(c.config, OpUpdateOne, withUserID(id))
 	return &UserUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
@@ -292,7 +293,7 @@ func (c *UserClient) DeleteOne(u *User) *UserDeleteOne {
 }
 
 // DeleteOneID returns a delete builder for the given id.
-func (c *UserClient) DeleteOneID(id uint64) *UserDeleteOne {
+func (c *UserClient) DeleteOneID(id discord.UserID) *UserDeleteOne {
 	builder := c.Delete().Where(user.ID(id))
 	builder.mutation.id = &id
 	builder.mutation.op = OpDeleteOne
@@ -305,17 +306,17 @@ func (c *UserClient) Query() *UserQuery {
 }
 
 // Get returns a User entity by its id.
-func (c *UserClient) Get(ctx context.Context, id uint64) (*User, error) {
+func (c *UserClient) Get(ctx context.Context, id discord.UserID) (*User, error) {
 	return c.Query().Where(user.ID(id)).Only(ctx)
 }
 
 // GetX is like Get, but panics if an error occurs.
-func (c *UserClient) GetX(ctx context.Context, id uint64) *User {
-	u, err := c.Get(ctx, id)
+func (c *UserClient) GetX(ctx context.Context, id discord.UserID) *User {
+	obj, err := c.Get(ctx, id)
 	if err != nil {
 		panic(err)
 	}
-	return u
+	return obj
 }
 
 // Hooks returns the client hooks.
@@ -399,11 +400,11 @@ func (c *WarningClient) Get(ctx context.Context, id int) (*Warning, error) {
 
 // GetX is like Get, but panics if an error occurs.
 func (c *WarningClient) GetX(ctx context.Context, id int) *Warning {
-	w, err := c.Get(ctx, id)
+	obj, err := c.Get(ctx, id)
 	if err != nil {
 		panic(err)
 	}
-	return w
+	return obj
 }
 
 // QueryUser queries the user edge of a Warning.
@@ -415,6 +416,38 @@ func (c *WarningClient) QueryUser(w *Warning) *UserQuery {
 			sqlgraph.From(warning.Table, warning.FieldID, id),
 			sqlgraph.To(user.Table, user.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, false, warning.UserTable, warning.UserColumn),
+		)
+		fromV = sqlgraph.Neighbors(w.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryIssuedBy queries the issuedBy edge of a Warning.
+func (c *WarningClient) QueryIssuedBy(w *Warning) *UserQuery {
+	query := &UserQuery{config: c.config}
+	query.path = func(ctx context.Context) (fromV *sql.Selector, _ error) {
+		id := w.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(warning.Table, warning.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, warning.IssuedByTable, warning.IssuedByColumn),
+		)
+		fromV = sqlgraph.Neighbors(w.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryGuild queries the guild edge of a Warning.
+func (c *WarningClient) QueryGuild(w *Warning) *GuildQuery {
+	query := &GuildQuery{config: c.config}
+	query.path = func(ctx context.Context) (fromV *sql.Selector, _ error) {
+		id := w.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(warning.Table, warning.FieldID, id),
+			sqlgraph.To(guild.Table, guild.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, warning.GuildTable, warning.GuildColumn),
 		)
 		fromV = sqlgraph.Neighbors(w.driver.Dialect(), step)
 		return fromV, nil

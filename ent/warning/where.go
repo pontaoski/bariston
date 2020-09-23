@@ -322,6 +322,62 @@ func HasUserWith(preds ...predicate.User) predicate.Warning {
 	})
 }
 
+// HasIssuedBy applies the HasEdge predicate on the "issuedBy" edge.
+func HasIssuedBy() predicate.Warning {
+	return predicate.Warning(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.To(IssuedByTable, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, IssuedByTable, IssuedByColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasIssuedByWith applies the HasEdge predicate on the "issuedBy" edge with a given conditions (other predicates).
+func HasIssuedByWith(preds ...predicate.User) predicate.Warning {
+	return predicate.Warning(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.To(IssuedByInverseTable, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, IssuedByTable, IssuedByColumn),
+		)
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasGuild applies the HasEdge predicate on the "guild" edge.
+func HasGuild() predicate.Warning {
+	return predicate.Warning(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.To(GuildTable, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, GuildTable, GuildColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasGuildWith applies the HasEdge predicate on the "guild" edge with a given conditions (other predicates).
+func HasGuildWith(preds ...predicate.Guild) predicate.Warning {
+	return predicate.Warning(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.To(GuildInverseTable, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, GuildTable, GuildColumn),
+		)
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups list of predicates with the AND operator between them.
 func And(predicates ...predicate.Warning) predicate.Warning {
 	return predicate.Warning(func(s *sql.Selector) {
