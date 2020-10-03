@@ -3,6 +3,7 @@ package commands
 import (
 	"baritone/bot/routing/types"
 	"strings"
+	"unicode"
 
 	iradix "github.com/hashicorp/go-immutable-radix"
 )
@@ -33,6 +34,39 @@ func RegisterCommand(command types.Command) {
 	commandList = append(commandList, command)
 }
 
+func ShellSplit(content string) (words []string) {
+	currentWord := ""
+	var parseUntil rune
+
+	for _, char := range content {
+		switch {
+		case parseUntil != 0:
+			if char == parseUntil {
+				parseUntil = 0
+			} else {
+				currentWord += string(char)
+			}
+		case char == '\'':
+			parseUntil = '\''
+		case char == '"':
+			parseUntil = '"'
+		case unicode.IsSpace(char):
+			if currentWord != "" {
+				words = append(words, currentWord)
+				currentWord = ""
+			}
+		default:
+			currentWord += string(char)
+		}
+	}
+
+	if currentWord != "" {
+		words = append(words, currentWord)
+	}
+
+	return
+}
+
 func LexCommand(content string) (cmd *types.Command, ctx types.Context, ok bool) {
 	if content == "" {
 		return
@@ -52,7 +86,7 @@ func LexCommand(content string) (cmd *types.Command, ctx types.Context, ok bool)
 	for _, flag := range cmd.Flags {
 		flag.Register(&ctx.FlagSet)
 	}
-	ctx.FlagSet.Parse(strings.Fields(ctx.RawContent))
+	ctx.FlagSet.Parse(ShellSplit(ctx.RawContent))
 	ok = true
 	ctx.Init()
 	return
