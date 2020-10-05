@@ -5,7 +5,9 @@ import (
 	"baritone/bot/routing/cache"
 	"baritone/bot/routing/commands"
 	"baritone/bot/routing/types"
+	"runtime/debug"
 
+	"github.com/alecthomas/repr"
 	"github.com/diamondburned/arikawa/discord"
 	"github.com/diamondburned/arikawa/gateway"
 	"github.com/diamondburned/arikawa/session"
@@ -14,15 +16,20 @@ import (
 )
 
 func handleMessage(s *session.Session, m discord.Message, mem *discord.Member) {
-	defer func() {
-		if err := recover(); err != nil {
-			s.Client.SendEmbed(m.ChannelID, discord.Embed{
-				Title:       "EXTREME ERROR",
-				Description: "There was a serious issue handling messages. Please report at once!",
-				Color:       types.ErrorRed,
-			})
-		}
-	}()
+	canPanic := func(f func()) {
+		defer func() {
+			if err := recover(); err != nil {
+				s.Client.SendEmbed(m.ChannelID, discord.Embed{
+					Title:       "EXTREME ERROR",
+					Description: "There was a serious issue handling messages. Please report at once!",
+					Color:       types.ErrorRed,
+				})
+				repr.Println(err)
+				println(string(debug.Stack()))
+			}
+		}()
+		f()
+	}
 	cmd, ctx, ok := commands.LexCommand(stripmd.Strip(m.Content))
 
 	if !ok {
@@ -47,7 +54,7 @@ func handleMessage(s *session.Session, m discord.Message, mem *discord.Member) {
 		}
 		data.ApplyFrom(&ctx)
 		data.Reason = types.EditMessage
-		cmd.GAction()(data)
+		go canPanic(func() { cmd.GAction()(data) })
 	} else {
 		ctx.TriggerMessage = m
 		ctx.Reason = types.CreateMessage
@@ -55,7 +62,7 @@ func handleMessage(s *session.Session, m discord.Message, mem *discord.Member) {
 		ctx.FromMember = mem
 		ctx.Session = s
 		cache.CommandCache.Add(m.ID, &ctx)
-		cmd.GAction()(&ctx)
+		go canPanic(func() { cmd.GAction()(&ctx) })
 	}
 
 }

@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"baritone/bot/commands/guildconfig"
 	"baritone/ent/guild"
 	"baritone/ent/warning"
 	"context"
@@ -35,6 +36,7 @@ type GuildMutation struct {
 	op              Op
 	typ             string
 	id              *discord.GuildID
+	_config         *guildconfig.GuildConfig
 	clearedFields   map[string]struct{}
 	warnings        map[int]struct{}
 	removedwarnings map[int]struct{}
@@ -128,6 +130,43 @@ func (m *GuildMutation) ID() (id discord.GuildID, exists bool) {
 	return *m.id, true
 }
 
+// SetConfig sets the config field.
+func (m *GuildMutation) SetConfig(gc guildconfig.GuildConfig) {
+	m._config = &gc
+}
+
+// Config returns the config value in the mutation.
+func (m *GuildMutation) Config() (r guildconfig.GuildConfig, exists bool) {
+	v := m._config
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldConfig returns the old config value of the Guild.
+// If the Guild object wasn't provided to the builder, the object is fetched
+// from the database.
+// An error is returned if the mutation operation is not UpdateOne, or database query fails.
+func (m *GuildMutation) OldConfig(ctx context.Context) (v guildconfig.GuildConfig, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, fmt.Errorf("OldConfig is allowed only on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, fmt.Errorf("OldConfig requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldConfig: %w", err)
+	}
+	return oldValue.Config, nil
+}
+
+// ResetConfig reset all changes of the "config" field.
+func (m *GuildMutation) ResetConfig() {
+	m._config = nil
+}
+
 // AddWarningIDs adds the warnings edge to Warning by ids.
 func (m *GuildMutation) AddWarningIDs(ids ...int) {
 	if m.warnings == nil {
@@ -195,7 +234,10 @@ func (m *GuildMutation) Type() string {
 // this mutation. Note that, in order to get all numeric
 // fields that were in/decremented, call AddedFields().
 func (m *GuildMutation) Fields() []string {
-	fields := make([]string, 0, 0)
+	fields := make([]string, 0, 1)
+	if m._config != nil {
+		fields = append(fields, guild.FieldConfig)
+	}
 	return fields
 }
 
@@ -203,6 +245,10 @@ func (m *GuildMutation) Fields() []string {
 // The second boolean value indicates that this field was
 // not set, or was not define in the schema.
 func (m *GuildMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case guild.FieldConfig:
+		return m.Config()
+	}
 	return nil, false
 }
 
@@ -210,6 +256,10 @@ func (m *GuildMutation) Field(name string) (ent.Value, bool) {
 // An error is returned if the mutation operation is not UpdateOne,
 // or the query to the database was failed.
 func (m *GuildMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case guild.FieldConfig:
+		return m.OldConfig(ctx)
+	}
 	return nil, fmt.Errorf("unknown Guild field %s", name)
 }
 
@@ -218,6 +268,13 @@ func (m *GuildMutation) OldField(ctx context.Context, name string) (ent.Value, e
 // type mismatch the field type.
 func (m *GuildMutation) SetField(name string, value ent.Value) error {
 	switch name {
+	case guild.FieldConfig:
+		v, ok := value.(guildconfig.GuildConfig)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetConfig(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Guild field %s", name)
 }
@@ -239,6 +296,8 @@ func (m *GuildMutation) AddedField(name string) (ent.Value, bool) {
 // error if the field is not defined in the schema, or if the
 // type mismatch the field type.
 func (m *GuildMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
 	return fmt.Errorf("unknown Guild numeric field %s", name)
 }
 
@@ -265,6 +324,11 @@ func (m *GuildMutation) ClearField(name string) error {
 // given field name. It returns an error if the field is not
 // defined in the schema.
 func (m *GuildMutation) ResetField(name string) error {
+	switch name {
+	case guild.FieldConfig:
+		m.ResetConfig()
+		return nil
+	}
 	return fmt.Errorf("unknown Guild field %s", name)
 }
 

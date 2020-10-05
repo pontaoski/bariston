@@ -3,9 +3,11 @@
 package ent
 
 import (
+	"baritone/bot/commands/guildconfig"
 	"baritone/ent/guild"
 	"baritone/ent/warning"
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/diamondburned/arikawa/discord"
@@ -18,6 +20,12 @@ type GuildCreate struct {
 	config
 	mutation *GuildMutation
 	hooks    []Hook
+}
+
+// SetConfig sets the config field.
+func (gc *GuildCreate) SetConfig(value guildconfig.GuildConfig) *GuildCreate {
+	gc.mutation.SetConfig(value)
+	return gc
 }
 
 // SetID sets the id field.
@@ -92,6 +100,9 @@ func (gc *GuildCreate) SaveX(ctx context.Context) *Guild {
 
 // check runs all checks and user-defined validators on the builder.
 func (gc *GuildCreate) check() error {
+	if _, ok := gc.mutation.Config(); !ok {
+		return &ValidationError{Name: "config", err: errors.New("ent: missing required field \"config\"")}
+	}
 	return nil
 }
 
@@ -104,7 +115,8 @@ func (gc *GuildCreate) sqlSave(ctx context.Context) (*Guild, error) {
 		return nil, err
 	}
 	if _node.ID == 0 {
-		_node.ID = _spec.ID.Value.(discord.GuildID)
+		id := _spec.ID.Value.(int64)
+		_node.ID = discord.GuildID(id)
 	}
 	return _node, nil
 }
@@ -123,6 +135,14 @@ func (gc *GuildCreate) createSpec() (*Guild, *sqlgraph.CreateSpec) {
 	if id, ok := gc.mutation.ID(); ok {
 		_node.ID = id
 		_spec.ID.Value = id
+	}
+	if value, ok := gc.mutation.Config(); ok {
+		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
+			Type:   field.TypeJSON,
+			Value:  value,
+			Column: guild.FieldConfig,
+		})
+		_node.Config = value
 	}
 	if nodes := gc.mutation.WarningsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

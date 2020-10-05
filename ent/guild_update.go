@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"baritone/bot/commands/guildconfig"
 	"baritone/ent/guild"
 	"baritone/ent/predicate"
 	"baritone/ent/warning"
@@ -25,6 +26,12 @@ type GuildUpdate struct {
 // Where adds a new predicate for the builder.
 func (gu *GuildUpdate) Where(ps ...predicate.Guild) *GuildUpdate {
 	gu.predicates = append(gu.predicates, ps...)
+	return gu
+}
+
+// SetConfig sets the config field.
+func (gu *GuildUpdate) SetConfig(gc guildconfig.GuildConfig) *GuildUpdate {
+	gu.mutation.SetConfig(gc)
 	return gu
 }
 
@@ -138,6 +145,13 @@ func (gu *GuildUpdate) sqlSave(ctx context.Context) (n int, err error) {
 			}
 		}
 	}
+	if value, ok := gu.mutation.Config(); ok {
+		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
+			Type:   field.TypeJSON,
+			Value:  value,
+			Column: guild.FieldConfig,
+		})
+	}
 	if gu.mutation.WarningsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -208,6 +222,12 @@ type GuildUpdateOne struct {
 	config
 	hooks    []Hook
 	mutation *GuildMutation
+}
+
+// SetConfig sets the config field.
+func (guo *GuildUpdateOne) SetConfig(gc guildconfig.GuildConfig) *GuildUpdateOne {
+	guo.mutation.SetConfig(gc)
+	return guo
 }
 
 // AddWarningIDs adds the warnings edge to Warning by ids.
@@ -318,6 +338,13 @@ func (guo *GuildUpdateOne) sqlSave(ctx context.Context) (_node *Guild, err error
 		return nil, &ValidationError{Name: "ID", err: fmt.Errorf("missing Guild.ID for update")}
 	}
 	_spec.Node.ID.Value = id
+	if value, ok := guo.mutation.Config(); ok {
+		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
+			Type:   field.TypeJSON,
+			Value:  value,
+			Column: guild.FieldConfig,
+		})
+	}
 	if guo.mutation.WarningsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,

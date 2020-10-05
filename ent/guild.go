@@ -3,7 +3,9 @@
 package ent
 
 import (
+	"baritone/bot/commands/guildconfig"
 	"baritone/ent/guild"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -13,9 +15,11 @@ import (
 
 // Guild is the model entity for the Guild schema.
 type Guild struct {
-	config
+	config `json:"-"`
 	// ID of the ent.
 	ID discord.GuildID `json:"id,omitempty"`
+	// Config holds the value of the "config" field.
+	Config guildconfig.GuildConfig `json:"config,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the GuildQuery when eager-loading is set.
 	Edges GuildEdges `json:"edges"`
@@ -43,6 +47,7 @@ func (e GuildEdges) WarningsOrErr() ([]*Warning, error) {
 func (*Guild) scanValues() []interface{} {
 	return []interface{}{
 		&sql.NullInt64{}, // id
+		&[]byte{},        // config
 	}
 }
 
@@ -58,6 +63,14 @@ func (gu *Guild) assignValues(values ...interface{}) error {
 	}
 	gu.ID = discord.GuildID(value.Int64)
 	values = values[1:]
+
+	if value, ok := values[0].(*[]byte); !ok {
+		return fmt.Errorf("unexpected type %T for field config", values[0])
+	} else if value != nil && len(*value) > 0 {
+		if err := json.Unmarshal(*value, &gu.Config); err != nil {
+			return fmt.Errorf("unmarshal field config: %v", err)
+		}
+	}
 	return nil
 }
 
@@ -89,6 +102,8 @@ func (gu *Guild) String() string {
 	var builder strings.Builder
 	builder.WriteString("Guild(")
 	builder.WriteString(fmt.Sprintf("id=%v", gu.ID))
+	builder.WriteString(", config=")
+	builder.WriteString(fmt.Sprintf("%v", gu.Config))
 	builder.WriteByte(')')
 	return builder.String()
 }

@@ -88,7 +88,8 @@ func (uc *UserCreate) sqlSave(ctx context.Context) (*User, error) {
 		return nil, err
 	}
 	if _node.ID == 0 {
-		_node.ID = _spec.ID.Value.(discord.UserID)
+		id := _spec.ID.Value.(int64)
+		_node.ID = discord.UserID(id)
 	}
 	return _node, nil
 }

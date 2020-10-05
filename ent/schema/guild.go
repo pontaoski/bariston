@@ -1,6 +1,8 @@
 package schema
 
 import (
+	"baritone/bot/commands/guildconfig"
+
 	"github.com/diamondburned/arikawa/discord"
 	"github.com/facebook/ent"
 	"github.com/facebook/ent/schema/edge"
@@ -16,6 +18,7 @@ type Guild struct {
 func (Guild) Fields() []ent.Field {
 	return []ent.Field{
 		field.Uint64("id").Unique().GoType(discord.GuildID(0)),
+		field.JSON("config", guildconfig.GuildConfig{}),
 	}
 }
 

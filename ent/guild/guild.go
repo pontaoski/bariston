@@ -7,6 +7,8 @@ const (
 	Label = "guild"
 	// FieldID holds the string denoting the id field in the database.
 	FieldID = "id"
+	// FieldConfig holds the string denoting the config field in the database.
+	FieldConfig = "config"
 
 	// EdgeWarnings holds the string denoting the warnings edge name in mutations.
 	EdgeWarnings = "warnings"
@@ -25,6 +27,7 @@ const (
 // Columns holds all SQL columns for guild fields.
 var Columns = []string{
 	FieldID,
+	FieldConfig,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).

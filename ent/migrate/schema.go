@@ -11,6 +11,7 @@ var (
 	// GuildsColumns holds the columns for the "guilds" table.
 	GuildsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "config", Type: field.TypeJSON},
 	}
 	// GuildsTable holds the schema information for the "guilds" table.
 	GuildsTable = &schema.Table{
