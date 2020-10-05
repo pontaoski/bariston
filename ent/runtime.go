@@ -2,8 +2,19 @@
 
 package ent
 
+import (
+	"baritone/ent/schema"
+	"baritone/ent/user"
+)
+
 // The init function reads all schema descriptors with runtime
 // code (default values, validators or hooks) and stitches it
 // to their package variables.
 func init() {
+	userFields := schema.User{}.Fields()
+	_ = userFields
+	// userDescPierogi is the schema descriptor for pierogi field.
+	userDescPierogi := userFields[1].Descriptor()
+	// user.DefaultPierogi holds the default value on creation for the pierogi field.
+	user.DefaultPierogi = userDescPierogi.Default.(int64)
 }

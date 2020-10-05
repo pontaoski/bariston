@@ -4,6 +4,7 @@ import (
 	"baritone/bot/logger"
 	"baritone/bot/routing/cache"
 	"baritone/bot/routing/commands"
+	"baritone/bot/routing/handlers"
 	"baritone/bot/routing/types"
 	"runtime/debug"
 
@@ -69,6 +70,7 @@ func handleMessage(s *session.Session, m discord.Message, mem *discord.Member) {
 
 func BeginRouting(s *session.Session) {
 	s.AddHandler(func(m *gateway.MessageCreateEvent) {
+		go logger.CanPanic(func() { handlers.MessageCreate(s, m) })
 		handleMessage(s, m.Message, m.Member)
 	})
 	s.AddHandler(func(m *gateway.MessageUpdateEvent) {

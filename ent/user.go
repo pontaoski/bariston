@@ -13,15 +13,18 @@ import (
 
 // User is the model entity for the User schema.
 type User struct {
-	config
+	config `json:"-"`
 	// ID of the ent.
 	ID discord.UserID `json:"id,omitempty"`
+	// Pierogi holds the value of the "pierogi" field.
+	Pierogi int64 `json:"pierogi,omitempty"`
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
 func (*User) scanValues() []interface{} {
 	return []interface{}{
 		&sql.NullInt64{}, // id
+		&sql.NullInt64{}, // pierogi
 	}
 }
 
@@ -37,6 +40,11 @@ func (u *User) assignValues(values ...interface{}) error {
 	}
 	u.ID = discord.UserID(value.Int64)
 	values = values[1:]
+	if value, ok := values[0].(*sql.NullInt64); !ok {
+		return fmt.Errorf("unexpected type %T for field pierogi", values[0])
+	} else if value.Valid {
+		u.Pierogi = value.Int64
+	}
 	return nil
 }
 
@@ -63,6 +71,8 @@ func (u *User) String() string {
 	var builder strings.Builder
 	builder.WriteString("User(")
 	builder.WriteString(fmt.Sprintf("id=%v", u.ID))
+	builder.WriteString(", pierogi=")
+	builder.WriteString(fmt.Sprintf("%v", u.Pierogi))
 	builder.WriteByte(')')
 	return builder.String()
 }

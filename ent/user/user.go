@@ -7,6 +7,8 @@ const (
 	Label = "user"
 	// FieldID holds the string denoting the id field in the database.
 	FieldID = "id"
+	// FieldPierogi holds the string denoting the pierogi field in the database.
+	FieldPierogi = "pierogi"
 
 	// Table holds the table name of the user in the database.
 	Table = "users"
@@ -15,6 +17,7 @@ const (
 // Columns holds all SQL columns for user fields.
 var Columns = []string{
 	FieldID,
+	FieldPierogi,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -26,3 +29,8 @@ func ValidColumn(column string) bool {
 	}
 	return false
 }
+
+var (
+	// DefaultPierogi holds the default value on creation for the pierogi field.
+	DefaultPierogi int64
+)

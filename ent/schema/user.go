@@ -15,6 +15,7 @@ type User struct {
 func (User) Fields() []ent.Field {
 	return []ent.Field{
 		field.Uint64("id").Unique().GoType(discord.UserID(0)),
+		field.Int64("pierogi").Default(0),
 	}
 }
 

@@ -5,6 +5,7 @@ package ent
 import (
 	"baritone/bot/commands/guildconfig"
 	"baritone/ent/guild"
+	"baritone/ent/user"
 	"baritone/ent/warning"
 	"context"
 	"fmt"
@@ -427,6 +428,8 @@ type UserMutation struct {
 	op            Op
 	typ           string
 	id            *discord.UserID
+	pierogi       *int64
+	addpierogi    *int64
 	clearedFields map[string]struct{}
 	done          bool
 	oldValue      func(context.Context) (*User, error)
@@ -517,6 +520,63 @@ func (m *UserMutation) ID() (id discord.UserID, exists bool) {
 	return *m.id, true
 }
 
+// SetPierogi sets the pierogi field.
+func (m *UserMutation) SetPierogi(i int64) {
+	m.pierogi = &i
+	m.addpierogi = nil
+}
+
+// Pierogi returns the pierogi value in the mutation.
+func (m *UserMutation) Pierogi() (r int64, exists bool) {
+	v := m.pierogi
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPierogi returns the old pierogi value of the User.
+// If the User object wasn't provided to the builder, the object is fetched
+// from the database.
+// An error is returned if the mutation operation is not UpdateOne, or database query fails.
+func (m *UserMutation) OldPierogi(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, fmt.Errorf("OldPierogi is allowed only on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, fmt.Errorf("OldPierogi requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPierogi: %w", err)
+	}
+	return oldValue.Pierogi, nil
+}
+
+// AddPierogi adds i to pierogi.
+func (m *UserMutation) AddPierogi(i int64) {
+	if m.addpierogi != nil {
+		*m.addpierogi += i
+	} else {
+		m.addpierogi = &i
+	}
+}
+
+// AddedPierogi returns the value that was added to the pierogi field in this mutation.
+func (m *UserMutation) AddedPierogi() (r int64, exists bool) {
+	v := m.addpierogi
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetPierogi reset all changes of the "pierogi" field.
+func (m *UserMutation) ResetPierogi() {
+	m.pierogi = nil
+	m.addpierogi = nil
+}
+
 // Op returns the operation name.
 func (m *UserMutation) Op() Op {
 	return m.op
@@ -531,7 +591,10 @@ func (m *UserMutation) Type() string {
 // this mutation. Note that, in order to get all numeric
 // fields that were in/decremented, call AddedFields().
 func (m *UserMutation) Fields() []string {
-	fields := make([]string, 0, 0)
+	fields := make([]string, 0, 1)
+	if m.pierogi != nil {
+		fields = append(fields, user.FieldPierogi)
+	}
 	return fields
 }
 
@@ -539,6 +602,10 @@ func (m *UserMutation) Fields() []string {
 // The second boolean value indicates that this field was
 // not set, or was not define in the schema.
 func (m *UserMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case user.FieldPierogi:
+		return m.Pierogi()
+	}
 	return nil, false
 }
 
@@ -546,6 +613,10 @@ func (m *UserMutation) Field(name string) (ent.Value, bool) {
 // An error is returned if the mutation operation is not UpdateOne,
 // or the query to the database was failed.
 func (m *UserMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case user.FieldPierogi:
+		return m.OldPierogi(ctx)
+	}
 	return nil, fmt.Errorf("unknown User field %s", name)
 }
 
@@ -554,6 +625,13 @@ func (m *UserMutation) OldField(ctx context.Context, name string) (ent.Value, er
 // type mismatch the field type.
 func (m *UserMutation) SetField(name string, value ent.Value) error {
 	switch name {
+	case user.FieldPierogi:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPierogi(v)
+		return nil
 	}
 	return fmt.Errorf("unknown User field %s", name)
 }
@@ -561,13 +639,21 @@ func (m *UserMutation) SetField(name string, value ent.Value) error {
 // AddedFields returns all numeric fields that were incremented
 // or decremented during this mutation.
 func (m *UserMutation) AddedFields() []string {
-	return nil
+	var fields []string
+	if m.addpierogi != nil {
+		fields = append(fields, user.FieldPierogi)
+	}
+	return fields
 }
 
 // AddedField returns the numeric value that was in/decremented
 // from a field with the given name. The second value indicates
 // that this field was not set, or was not define in the schema.
 func (m *UserMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case user.FieldPierogi:
+		return m.AddedPierogi()
+	}
 	return nil, false
 }
 
@@ -575,6 +661,15 @@ func (m *UserMutation) AddedField(name string) (ent.Value, bool) {
 // error if the field is not defined in the schema, or if the
 // type mismatch the field type.
 func (m *UserMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case user.FieldPierogi:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddPierogi(v)
+		return nil
+	}
 	return fmt.Errorf("unknown User numeric field %s", name)
 }
 
@@ -601,6 +696,11 @@ func (m *UserMutation) ClearField(name string) error {
 // given field name. It returns an error if the field is not
 // defined in the schema.
 func (m *UserMutation) ResetField(name string) error {
+	switch name {
+	case user.FieldPierogi:
+		m.ResetPierogi()
+		return nil
+	}
 	return fmt.Errorf("unknown User field %s", name)
 }
 

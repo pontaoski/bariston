@@ -5,6 +5,7 @@ package ent
 import (
 	"baritone/ent/user"
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/diamondburned/arikawa/discord"
@@ -17,6 +18,20 @@ type UserCreate struct {
 	config
 	mutation *UserMutation
 	hooks    []Hook
+}
+
+// SetPierogi sets the pierogi field.
+func (uc *UserCreate) SetPierogi(i int64) *UserCreate {
+	uc.mutation.SetPierogi(i)
+	return uc
+}
+
+// SetNillablePierogi sets the pierogi field if the given value is not nil.
+func (uc *UserCreate) SetNillablePierogi(i *int64) *UserCreate {
+	if i != nil {
+		uc.SetPierogi(*i)
+	}
+	return uc
 }
 
 // SetID sets the id field.
@@ -36,6 +51,7 @@ func (uc *UserCreate) Save(ctx context.Context) (*User, error) {
 		err  error
 		node *User
 	)
+	uc.defaults()
 	if len(uc.hooks) == 0 {
 		if err = uc.check(); err != nil {
 			return nil, err
@@ -74,8 +90,19 @@ func (uc *UserCreate) SaveX(ctx context.Context) *User {
 	return v
 }
 
+// defaults sets the default values of the builder before save.
+func (uc *UserCreate) defaults() {
+	if _, ok := uc.mutation.Pierogi(); !ok {
+		v := user.DefaultPierogi
+		uc.mutation.SetPierogi(v)
+	}
+}
+
 // check runs all checks and user-defined validators on the builder.
 func (uc *UserCreate) check() error {
+	if _, ok := uc.mutation.Pierogi(); !ok {
+		return &ValidationError{Name: "pierogi", err: errors.New("ent: missing required field \"pierogi\"")}
+	}
 	return nil
 }
 
@@ -109,6 +136,14 @@ func (uc *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 		_node.ID = id
 		_spec.ID.Value = id
 	}
+	if value, ok := uc.mutation.Pierogi(); ok {
+		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
+			Type:   field.TypeInt64,
+			Value:  value,
+			Column: user.FieldPierogi,
+		})
+		_node.Pierogi = value
+	}
 	return _node, _spec
 }
 
@@ -126,6 +161,7 @@ func (ucb *UserCreateBulk) Save(ctx context.Context) ([]*User, error) {
 	for i := range ucb.builders {
 		func(i int, root context.Context) {
 			builder := ucb.builders[i]
+			builder.defaults()
 			var mut Mutator = MutateFunc(func(ctx context.Context, m Mutation) (Value, error) {
 				mutation, ok := m.(*UserMutation)
 				if !ok {

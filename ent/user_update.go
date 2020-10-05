@@ -27,6 +27,27 @@ func (uu *UserUpdate) Where(ps ...predicate.User) *UserUpdate {
 	return uu
 }
 
+// SetPierogi sets the pierogi field.
+func (uu *UserUpdate) SetPierogi(i int64) *UserUpdate {
+	uu.mutation.ResetPierogi()
+	uu.mutation.SetPierogi(i)
+	return uu
+}
+
+// SetNillablePierogi sets the pierogi field if the given value is not nil.
+func (uu *UserUpdate) SetNillablePierogi(i *int64) *UserUpdate {
+	if i != nil {
+		uu.SetPierogi(*i)
+	}
+	return uu
+}
+
+// AddPierogi adds i to pierogi.
+func (uu *UserUpdate) AddPierogi(i int64) *UserUpdate {
+	uu.mutation.AddPierogi(i)
+	return uu
+}
+
 // Mutation returns the UserMutation object of the builder.
 func (uu *UserUpdate) Mutation() *UserMutation {
 	return uu.mutation
@@ -101,6 +122,20 @@ func (uu *UserUpdate) sqlSave(ctx context.Context) (n int, err error) {
 			}
 		}
 	}
+	if value, ok := uu.mutation.Pierogi(); ok {
+		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
+			Type:   field.TypeInt64,
+			Value:  value,
+			Column: user.FieldPierogi,
+		})
+	}
+	if value, ok := uu.mutation.AddedPierogi(); ok {
+		_spec.Fields.Add = append(_spec.Fields.Add, &sqlgraph.FieldSpec{
+			Type:   field.TypeInt64,
+			Value:  value,
+			Column: user.FieldPierogi,
+		})
+	}
 	if n, err = sqlgraph.UpdateNodes(ctx, uu.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{user.Label}
@@ -117,6 +152,27 @@ type UserUpdateOne struct {
 	config
 	hooks    []Hook
 	mutation *UserMutation
+}
+
+// SetPierogi sets the pierogi field.
+func (uuo *UserUpdateOne) SetPierogi(i int64) *UserUpdateOne {
+	uuo.mutation.ResetPierogi()
+	uuo.mutation.SetPierogi(i)
+	return uuo
+}
+
+// SetNillablePierogi sets the pierogi field if the given value is not nil.
+func (uuo *UserUpdateOne) SetNillablePierogi(i *int64) *UserUpdateOne {
+	if i != nil {
+		uuo.SetPierogi(*i)
+	}
+	return uuo
+}
+
+// AddPierogi adds i to pierogi.
+func (uuo *UserUpdateOne) AddPierogi(i int64) *UserUpdateOne {
+	uuo.mutation.AddPierogi(i)
+	return uuo
 }
 
 // Mutation returns the UserMutation object of the builder.
@@ -191,6 +247,20 @@ func (uuo *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) 
 		return nil, &ValidationError{Name: "ID", err: fmt.Errorf("missing User.ID for update")}
 	}
 	_spec.Node.ID.Value = id
+	if value, ok := uuo.mutation.Pierogi(); ok {
+		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
+			Type:   field.TypeInt64,
+			Value:  value,
+			Column: user.FieldPierogi,
+		})
+	}
+	if value, ok := uuo.mutation.AddedPierogi(); ok {
+		_spec.Fields.Add = append(_spec.Fields.Add, &sqlgraph.FieldSpec{
+			Type:   field.TypeInt64,
+			Value:  value,
+			Column: user.FieldPierogi,
+		})
+	}
 	_node = &User{config: uuo.config}
 	_spec.Assign = _node.assignValues
 	_spec.ScanValues = _node.scanValues()

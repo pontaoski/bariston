@@ -3,6 +3,7 @@ package bot
 import (
 	_ "baritone/bot/commands"
 	. "baritone/bot/configuration"
+	_ "baritone/bot/handlers"
 	"baritone/bot/logger"
 	"baritone/bot/routing"
 	"baritone/bot/storage"

@@ -4,6 +4,7 @@ import (
 	flag "github.com/spf13/pflag"
 
 	"github.com/diamondburned/arikawa/discord"
+	"github.com/diamondburned/arikawa/gateway"
 	"github.com/diamondburned/arikawa/session"
 	"github.com/diamondburned/dgwidgets"
 )
@@ -51,6 +52,10 @@ type Flag interface {
 	Short() string
 	Usage() string
 	Register(*flag.FlagSet)
+}
+
+type Handler struct {
+	MessageCreate func(*session.Session, *gateway.MessageCreateEvent)
 }
 
 type Command struct {

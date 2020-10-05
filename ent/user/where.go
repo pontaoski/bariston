@@ -92,6 +92,89 @@ func IDLTE(id discord.UserID) predicate.User {
 	})
 }
 
+// Pierogi applies equality check predicate on the "pierogi" field. It's identical to PierogiEQ.
+func Pierogi(v int64) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		s.Where(sql.EQ(s.C(FieldPierogi), v))
+	})
+}
+
+// PierogiEQ applies the EQ predicate on the "pierogi" field.
+func PierogiEQ(v int64) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		s.Where(sql.EQ(s.C(FieldPierogi), v))
+	})
+}
+
+// PierogiNEQ applies the NEQ predicate on the "pierogi" field.
+func PierogiNEQ(v int64) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		s.Where(sql.NEQ(s.C(FieldPierogi), v))
+	})
+}
+
+// PierogiIn applies the In predicate on the "pierogi" field.
+func PierogiIn(vs ...int64) predicate.User {
+	v := make([]interface{}, len(vs))
+	for i := range v {
+		v[i] = vs[i]
+	}
+	return predicate.User(func(s *sql.Selector) {
+		// if not arguments were provided, append the FALSE constants,
+		// since we can't apply "IN ()". This will make this predicate falsy.
+		if len(v) == 0 {
+			s.Where(sql.False())
+			return
+		}
+		s.Where(sql.In(s.C(FieldPierogi), v...))
+	})
+}
+
+// PierogiNotIn applies the NotIn predicate on the "pierogi" field.
+func PierogiNotIn(vs ...int64) predicate.User {
+	v := make([]interface{}, len(vs))
+	for i := range v {
+		v[i] = vs[i]
+	}
+	return predicate.User(func(s *sql.Selector) {
+		// if not arguments were provided, append the FALSE constants,
+		// since we can't apply "IN ()". This will make this predicate falsy.
+		if len(v) == 0 {
+			s.Where(sql.False())
+			return
+		}
+		s.Where(sql.NotIn(s.C(FieldPierogi), v...))
+	})
+}
+
+// PierogiGT applies the GT predicate on the "pierogi" field.
+func PierogiGT(v int64) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		s.Where(sql.GT(s.C(FieldPierogi), v))
+	})
+}
+
+// PierogiGTE applies the GTE predicate on the "pierogi" field.
+func PierogiGTE(v int64) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		s.Where(sql.GTE(s.C(FieldPierogi), v))
+	})
+}
+
+// PierogiLT applies the LT predicate on the "pierogi" field.
+func PierogiLT(v int64) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		s.Where(sql.LT(s.C(FieldPierogi), v))
+	})
+}
+
+// PierogiLTE applies the LTE predicate on the "pierogi" field.
+func PierogiLTE(v int64) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		s.Where(sql.LTE(s.C(FieldPierogi), v))
+	})
+}
+
 // And groups list of predicates with the AND operator between them.
 func And(predicates ...predicate.User) predicate.User {
 	return predicate.User(func(s *sql.Selector) {
