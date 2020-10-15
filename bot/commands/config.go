@@ -20,7 +20,7 @@ func init() {
 	})
 }
 
-// Get gets a config for a guild
+// GetConfig gets a config for a guild
 func GetConfig(g discord.GuildID) guildconfig.GuildConfig {
 	storage.RegisterGuild(g)
 
@@ -29,7 +29,7 @@ func GetConfig(g discord.GuildID) guildconfig.GuildConfig {
 		Config
 }
 
-// Save saves a config for a guild
+// SaveConfig saves a config for a guild
 func SaveConfig(g discord.GuildID, conf guildconfig.GuildConfig) {
 	storage.RegisterGuild(g)
 
@@ -40,6 +40,7 @@ func SaveConfig(g discord.GuildID, conf guildconfig.GuildConfig) {
 		SaveX(context.Background())
 }
 
+// Config handles configuration
 func Config(c *types.Context) {
 	_ = GetConfig(c.TriggerMessage.GuildID)
 }

@@ -18,6 +18,7 @@ func init() {
 	})
 }
 
+// ExecuteScript handles the command cafescript execute
 func ExecuteScript(c *types.Context) {
 	cafescript.ExecuteScript(c, c.RawContent)
 }

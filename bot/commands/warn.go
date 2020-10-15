@@ -54,6 +54,7 @@ func init() {
 	})
 }
 
+// WarningListToString converts a list of warnings to a string
 func WarningListToString(list []*ent.Warning) string {
 	var sb strings.Builder
 	for _, warning := range list {
@@ -64,6 +65,7 @@ func WarningListToString(list []*ent.Warning) string {
 	return sb.String()
 }
 
+// WarningListToEmbedList converts a list of warnings to a list of embeds
 func WarningListToEmbedList(list []*ent.Warning) types.EmbedList {
 	return types.EmbedList{
 		ItemTypeName: "Warning",
@@ -96,6 +98,7 @@ func WarningListToEmbedList(list []*ent.Warning) types.EmbedList {
 	}
 }
 
+// MyWarnings handles the command where users get information about their warnings
 func MyWarnings(c *types.Context) {
 	warnings, err := moderation.UserWarnings(c.FromAuthor.ID, c.TriggerMessage.GuildID)
 	if err != nil {
@@ -109,9 +112,10 @@ func MyWarnings(c *types.Context) {
 	c.Send(WarningListToEmbedList(warnings), "result")
 }
 
+// GetWarns handles the command that allows a user to get warnings
 func GetWarns(c *types.Context) {
 	if len(c.TriggerMessage.Mentions) < 1 {
-		c.Send(c.ErrorEmbed("Please mention a user to warn. You can edit your message, and I'll respond to it."), "primary")
+		c.Send(c.ErrorEmbed("Please mention a user to get warnings for. You can edit your message, and I'll respond to it."), "primary")
 	}
 	warnings, err := moderation.UserWarnings(c.TriggerMessage.Mentions[0].ID, c.TriggerMessage.GuildID)
 	if err != nil {
@@ -129,6 +133,7 @@ func GetWarns(c *types.Context) {
 	c.Send(WarningListToEmbedList(warnings), "result")
 }
 
+// Warn warns a user
 func Warn(c *types.Context) {
 	if c.Waiting {
 		c.Send(c.ErrorEmbed("Uh, you edited your message while I was waiting on you. Not very nice of you."), "scolding")

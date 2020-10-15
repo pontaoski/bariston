@@ -17,6 +17,7 @@ func init() {
 	})
 }
 
+// Echo replies with the command arguments
 func Echo(c *types.Context) {
 	if c.FromMember != nil {
 		c.Send(discord.Embed{

@@ -20,6 +20,7 @@ func init() {
 	})
 }
 
+// Pierogi handles people checking how many pierogi they have
 func Pierogi(c *types.Context) {
 	if len(c.TriggerMessage.Mentions) == 0 {
 		storage.RegisterUser(c.FromAuthor.ID)
