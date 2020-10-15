@@ -5,6 +5,7 @@ import (
 	"baritone/bot/routing/cache"
 	"baritone/bot/routing/commands"
 	"baritone/bot/routing/handlers"
+	"baritone/bot/routing/state"
 	"baritone/bot/routing/types"
 	"runtime/debug"
 
@@ -32,6 +33,7 @@ func handleMessage(s *session.Session, m discord.Message, mem *discord.Member) {
 		f()
 	}
 	cmd, ctx, ok := commands.LexCommand(stripmd.Strip(m.Content))
+	ctx.GuildState = state.GetGuild(m.GuildID)
 
 	if !ok {
 		if val, ok := cache.CommandCache.Get(m.ID); ok {

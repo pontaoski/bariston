@@ -3,6 +3,8 @@ package types
 import (
 	flag "github.com/spf13/pflag"
 
+	"baritone/bot/routing/state"
+
 	"github.com/diamondburned/arikawa/discord"
 	"github.com/diamondburned/arikawa/gateway"
 	"github.com/diamondburned/arikawa/session"
@@ -105,6 +107,7 @@ type Context struct {
 	FromAuthor     discord.User
 	FromMember     *discord.Member
 	Waiting        bool
+	GuildState     *state.Guild
 
 	msgs       map[string]*discord.Message
 	paginators map[string]*dgwidgets.Paginator
